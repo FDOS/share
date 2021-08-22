@@ -27,16 +27,16 @@ LD=$(CCBASE)$(BINBASE)\tlink
 LIBS=$(CCBASE)\lib
 INCLUDE=$(CCBASE)\include
 
-SHARE.COM: SHARE.OBJ
-	$(LD) $(LOPT) $(LIBS)\c0t.obj share.obj,share.com,,$(LIBS)\cs.lib
+share.com: share.obj
+	$(TLINK) $(LOPT) $(LIBS)\c0t.obj share.obj,share.com,,$(LIBS)\cs.lib
 
-SHARE.OBJ: SHARE.C    
-	$(CC) $(COPT) share.c
+share.obj: share.c
+	$(TCC) $(COPT) share.c
 
-CLEAN:
+clean:
 	del *.obj
 	
-CLOBBER: CLEAN
+clobber: clean
 	del *.com
 	del *.exe
 	del *.map
