@@ -7,14 +7,27 @@
 
 /* #include <stdio.h> */ /* (fprintf removed...) */
 /* #include <fcntl.h> */ /* Not used, using defines below... */
-#include <io.h>		/* write (what else?) */
 #include <stdlib.h>	/* _psp, NULL, malloc, free, atol, atoi */
 #include <dos.h>	/* MK_FP, FP_OFF, FP_SEG, int86, intdosx, */
 			/* freemem, keep */
 #include <string.h>	/* strchr, strlen, memset */
 
-#ifndef __TURBOC__
-#error "This software must be compiled with TurboC or TurboC++."
+#ifdef __TURBOC__
+#include <io.h>		/* write (what else?) */
+#define NON_RESIDENT
+
+#elif defined(__GNUC__)
+#include <libi86/stdlib.h>
+#include <unistd.h>
+#define NON_RESIDENT __attribute__((section(".non_resident_text")))
+#define far __far
+#define getvect(x) _dos_getvect(x)
+#define setvect(x, y) _dos_setvect(x, (__libi86_isr_t)y)
+#define freemem(x) _dos_freemem(x)
+static void keep(unsigned char rval, unsigned short paras) NON_RESIDENT;
+
+#else
+#error "This software must be compiled with TurboC, TurboC++ or Gcc-ia16"
 #endif
 
 /* Changed by Eric Auer 5/2004: Squeezing executable size a bit -> */
@@ -142,14 +155,19 @@ static lock_t *lock_table = NULL;
 
 
 		/* ------------- PROTOTYPES ------------- */
+static void usage(void) NON_RESIDENT;
+static void bad_params(void) NON_RESIDENT;
+unsigned short init_tables(void) NON_RESIDENT;
+int main(int argc, char **argv) NON_RESIDENT;
+
 /* PRINT added by Eric */
 #define ERR 2	/* handle of stderr */
 #define OUT 1	/* handle of stdout */
-static void PRINT(int handle, char * text);
+static void PRINT(int handle, char * text) NON_RESIDENT;
 static void PRINT(int handle, char * text) {
 	(void)write (handle, text, strlen(text));
 	/* return value is -1 error or N bytes_written. Ignored. */
-};
+}
 
 
 	/* DOS calls this to see if it's okay to open the file.
@@ -201,6 +219,7 @@ static int lock_unlock
 
 	/* Multiplex interrupt handler */
 
+#if defined(__TURBOC__)
 static void interrupt far (*old_handler2f)() = NULL;
 
 
@@ -224,6 +243,20 @@ static void interrupt far handler2f(intregs_t iregs) {
 }	/* This evil trick probably only works with Turbo C!?! */
 	/* would have been better to link a NASM handler core: */
 	/* nasm -fobj -o foo.obj foo.asm ... */
+
+#elif defined(__GNUC__)
+void __far __interrupt (*old_handler2f)(void) = NULL;
+
+/* Prototype for NASM wrapper function */
+extern void __far __interrupt __attribute__((near_section)) handler2f(void);
+
+extern int need_to_chain;
+extern uint16_t top_of_stack;
+extern intregs_t iregs;
+void inner_handler(void) {
+	need_to_chain = 0;
+
+#endif
 
 	if (((iregs.ax >> 8) & 0xff) == MULTIPLEX_ID) {
 		if ((iregs.ax & 0xff) == 0) {
@@ -288,7 +321,11 @@ static void interrupt far handler2f(intregs_t iregs) {
 		}
 	}
 		/* Chain to the next handler. */
+#if defined(__TURBOC__)
 	chain_old_handler2f;
+#elif defined(__GNUC__)
+	need_to_chain = 1;
+#endif
 }
 
 static void remove_all_locks(int fileno) {
@@ -577,19 +614,43 @@ static int lock_unlock
 }
 
 		/* ------------- INIT ------------- */
-	/* Allocate tables and install hooks into the kernel.
-	   If we run out of memory, return non-zero. */
-static int init(void) {
-	/* int i; */
+	/* Allocate tables.
+	 * If we run out of memory return zero, otherwise return size
+	 * in paragraphs from PSP to end of last table */
 
-	file_table_size = file_table_size_bytes/sizeof(file_t);
-	if ((file_table=malloc(file_table_size_bytes)) == NULL)
-		return 1;
+unsigned short init_tables(void) {
+	unsigned short paras;
+	char far *fptr;
+	char *onebyte;
+
+	file_table_size = file_table_size_bytes / sizeof(file_t);
+	if ((file_table = malloc(file_table_size_bytes)) == NULL)
+		return 0;
 	memset(file_table, 0, file_table_size_bytes);
-	if ((lock_table=malloc(lock_table_size*sizeof(lock_t))) == NULL)
-		return 1;
-	memset(lock_table, 0, lock_table_size*sizeof(lock_t));
-	return 0;
+
+	if ((lock_table = malloc(lock_table_size * sizeof(lock_t))) == NULL) {
+		free(file_table);
+		file_table = NULL;
+		return 0;
+	}
+	memset(lock_table, 0, lock_table_size * sizeof(lock_t));
+
+	/* Allocate a single byte.  This tells us the size of the TSR.
+	   Free the byte when we know the address. */
+	onebyte = malloc(1);
+	if (onebyte == NULL) {
+		free(file_table);
+		file_table = NULL;
+		free(lock_table);
+		lock_table = NULL;
+		return 0;
+	}
+	fptr = (char far *)onebyte;
+	paras = (FP_SEG(fptr)+((FP_OFF(fptr)+15) >> 4)) - _psp;
+				/* resident paras, counting from PSP:0 */
+	free(onebyte);
+
+	return paras;
 }
 
 static void usage(void) {
@@ -609,15 +670,22 @@ static void bad_params(void) {
 	PRINT(ERR, ": parameter out of range!\r\n");
 }
 
-static void out_of_memory(void) {
-	PRINT(ERR, progname);
-	PRINT(ERR,": out of memory!\r\n");
+#if defined(__GNUC__)
+static void keep(unsigned char rval, unsigned short paras) {
+	union REGS r;
+
+	r.h.ah = 0x31;	// TSR
+	r.h.al = rval;	// return code
+	r.x.dx = paras;	// number of paragraphs to make resident
+	int86(0x21, &r, &r);
+
+	/* never returns */
 }
+#endif
 
 		/* ------------- MAIN ------------- */
 int main(int argc, char **argv) {
 	unsigned short far *usfptr;
-	unsigned char far *uscptr;
 	unsigned short top_of_tsr;
 	int installed = 0;
 	int i;
@@ -709,22 +777,16 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
-	if (init() != 0) {
-		out_of_memory();
+	top_of_tsr = init_tables();
+	if (top_of_tsr == 0) {
+		PRINT(ERR, progname);
+		PRINT(ERR,": out of memory!\r\n");
 		return 2;
 	}
-
-		/* Allocate a single byte.  This tells us the size of the TSR.
-		   Free the byte when we know the address. */
-	uscptr = (unsigned char far *)malloc(1);
-	if (uscptr == NULL) {
-		out_of_memory();
-		return 2;
-	}
-	top_of_tsr = (FP_SEG(uscptr)+((FP_OFF(uscptr)+15) >> 4)) - _psp;
-				/* resident paras, counting from PSP:0 */
-	free((void *)uscptr);
-
+#if defined(__GNUC__)
+	top_of_tsr += 4; // Add 64 bytes for stack
+	top_of_stack = (top_of_tsr << 4);
+#endif
 
 		/* Hook the interrupt for the handler routine. */
 	/* disable(); */
@@ -748,14 +810,7 @@ int main(int argc, char **argv) {
 					/* of FP_OFF and FP_SEG ... */
 	freemem(*usfptr);	/* deallocate MCB of ENV segment */
 
-#if 0
-		/* Free the remainder of memory for use by applications. */
-	setblock(_psp,top_of_tsr);
-				/*  resize self: already done by keep()  */
-#endif
-
 		/* Terminate and stay resident. */
 	keep(0,top_of_tsr);	/* size is set to top_of_tsr paragraphs */
 	return 0;
 }
-

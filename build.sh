@@ -2,8 +2,11 @@
 
 if [ x"${COMPILER}" = "xgcc" ] ; then
   export CC="ia16-elf-gcc"
-  export COPT="-Wall -fpack-struct -mcmodel=tiny -o "
-  export LOPT="-li86"
+  export COPT="-Wall -fpack-struct -mcmodel=tiny -c share.c -o share.obj -Os"
+  export XOBJS="gcc_help.obj"
+  export LD="ia16-elf-ld"
+  export LOPT="share.obj ${XOBJS} -o share.com -li86 --script gcc_help.ld -Map=share.map"
+  make
 
 elif [ x"${COMPILER}" = "xtcc2-emu" ] ; then
   if ! $(file "share.c" | grep -q CRLF) ; then
@@ -22,9 +25,7 @@ elif [ x"${COMPILER}" = "xtcc3-emu" ] ; then
 
 else
   echo "Please set the COMPILER env var to one of"
-  echo "Cross compile           : 'gcc' (not working yet)"
+  echo "Cross compile           : 'gcc'"
   echo "Native compile (Dosemu) : 'tcc2-emu' or 'tcc3-emu'"
   exit 1
 fi
-
-make
