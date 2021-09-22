@@ -7,7 +7,7 @@
 
 /* #include <stdio.h> */ /* (fprintf removed...) */
 /* #include <fcntl.h> */ /* Not used, using defines below... */
-#include <stdlib.h>	/* _psp, NULL, malloc, free, atol, atoi */
+#include <stdlib.h>	/* _psp, NULL, malloc, free, atol */
 #include <dos.h>	/* MK_FP, FP_OFF, FP_SEG, int86, intdosx, */
 			/* freemem, keep */
 #include <string.h>	/* strchr, strlen, memset */
@@ -25,6 +25,8 @@
 #define setvect(x, y) _dos_setvect(x, (__libi86_isr_t)y)
 #define freemem(x) _dos_freemem(x)
 static void keep(unsigned char rval, unsigned short paras) NON_RESIDENT;
+
+#define atol(s) minimal_atol(s)
 
 #else
 #error "This software must be compiled with TurboC, TurboC++ or Gcc-ia16"
@@ -682,6 +684,24 @@ static void keep(unsigned char rval, unsigned short paras) {
 
 	/* never returns */
 }
+
+/* Naive implementation of atol(), only decimal digits allowed, no signs */
+static long minimal_atol(const char *s) NON_RESIDENT;
+static long minimal_atol(const char *s) {
+	long val;
+	const char *p;
+
+	for (val = 0, p = s; *p; p++) {
+		if (*p == ' ')
+			continue;
+		if (*p < '0' || *p > '9')
+			break;
+		val *= 10;
+		val += *p - '0';
+	}
+
+	return val;
+}
 #endif
 
 		/* ------------- MAIN ------------- */
@@ -742,14 +762,12 @@ int main(int argc, char **argv) {
 				return 3;
 			}
 			arg++;
-			{
-				long temp = atol(arg);
-				if (   (temp < (long)FILE_TABLE_MIN)
-					|| (temp > (long)FILE_TABLE_MAX)   ) {
-					bad_params();
-					return 3;
-				}
-				file_table_size_bytes = (unsigned int)temp;
+
+			file_table_size_bytes = (unsigned int)atol(arg);
+			if (   (file_table_size_bytes < FILE_TABLE_MIN)
+				|| (file_table_size_bytes > FILE_TABLE_MAX)   ) {
+				bad_params();
+				return 3;
 			}
 			break;
 		case 'l':
@@ -760,7 +778,8 @@ int main(int argc, char **argv) {
 				return 3;
 			}
 			arg++;
-			lock_table_size = atoi(arg);
+
+			lock_table_size = (unsigned int)atol(arg);
 			if (   (lock_table_size < LOCK_TABLE_MIN)
 				|| (lock_table_size > LOCK_TABLE_MAX)   ) {
 				bad_params();
