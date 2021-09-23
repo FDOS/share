@@ -245,7 +245,8 @@ static void interrupt far handler2f(intregs_t iregs) {
 	/* nasm -fobj -o foo.obj foo.asm ... */
 
 #elif defined(__GNUC__)
-void __far __interrupt (*old_handler2f)(void) = NULL;
+/* Within IBM Interrupt Sharing Protocol header */
+extern void __far __interrupt (*old_handler2f)(void);
 
 /* Prototype for NASM wrapper function */
 extern void __far __interrupt __attribute__((near_section)) handler2f(void);
