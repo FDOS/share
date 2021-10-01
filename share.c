@@ -14,17 +14,21 @@
 
 #ifdef __TURBOC__
 #include <io.h>		/* write (what else?) */
-#define NON_RESIDENT
+#define NON_RES_TEXT
+#define NON_RES_DATA
+#define NON_RES_BSS
 
 #elif defined(__GNUC__)
 #include <libi86/stdlib.h>
 #include <unistd.h>
-#define NON_RESIDENT __attribute__((section(".non_resident_text")))
+#define NON_RES_TEXT __attribute__((section(".text.startup")))
+#define NON_RES_DATA __attribute__((section(".data.startup")))
+#define NON_RES_BSS __attribute__((section(".bss.startup")))
 #define far __far
 #define getvect(x) _dos_getvect(x)
 #define setvect(x, y) _dos_setvect(x, (__libi86_isr_t)y)
 #define freemem(x) _dos_freemem(x)
-static void keep(unsigned char rval, unsigned short paras) NON_RESIDENT;
+static void keep(unsigned char rval, unsigned short paras) NON_RES_TEXT;
 
 #define atol(s) minimal_atol(s)
 
@@ -148,8 +152,8 @@ typedef struct {
 
 
 		/* ------------- GLOBALS ------------- */
-static char progname[9];
-static unsigned int file_table_size_bytes = 2048;
+static char progname[9] NON_RES_BSS;
+static unsigned int file_table_size_bytes NON_RES_DATA = 2048;
 static unsigned int file_table_size = 0;	/* # of file_t we can have */
 static file_t *file_table = NULL;
 static unsigned int lock_table_size = 20;	/* # of lock_t we can have */
@@ -157,15 +161,15 @@ static lock_t *lock_table = NULL;
 
 
 		/* ------------- PROTOTYPES ------------- */
-static void usage(void) NON_RESIDENT;
-static void bad_params(void) NON_RESIDENT;
-unsigned short init_tables(void) NON_RESIDENT;
-int main(int argc, char **argv) NON_RESIDENT;
+static void usage(void) NON_RES_TEXT;
+static void bad_params(void) NON_RES_TEXT;
+unsigned short init_tables(void) NON_RES_TEXT;
+int main(int argc, char **argv) NON_RES_TEXT;
 
 /* PRINT added by Eric */
 #define ERR 2	/* handle of stderr */
 #define OUT 1	/* handle of stdout */
-static void PRINT(int handle, char * text) NON_RESIDENT;
+static void PRINT(int handle, char * text) NON_RES_TEXT;
 static void PRINT(int handle, char * text) {
 	(void)write (handle, text, strlen(text));
 	/* return value is -1 error or N bytes_written. Ignored. */
@@ -643,7 +647,9 @@ static int is_file_open(char far *filename)
 unsigned short init_tables(void) {
 	unsigned short paras;
 	char far *fptr;
+#if defined(__TURBOC__)
 	char *onebyte;
+#endif
 
 	file_table_size = file_table_size_bytes / sizeof(file_t);
 	if ((file_table = malloc(file_table_size_bytes)) == NULL)
@@ -657,6 +663,7 @@ unsigned short init_tables(void) {
 	}
 	memset(lock_table, 0, lock_table_size * sizeof(lock_t));
 
+#if defined(__TURBOC__)
 	/* Allocate a single byte.  This tells us the size of the TSR.
 	   Free the byte when we know the address. */
 	onebyte = malloc(1);
@@ -668,10 +675,14 @@ unsigned short init_tables(void) {
 		return 0;
 	}
 	fptr = (char far *)onebyte;
-	paras = (FP_SEG(fptr)+((FP_OFF(fptr)+15) >> 4)) - _psp;
-				/* resident paras, counting from PSP:0 */
 	free(onebyte);
 
+#else /* GNUC */
+	fptr = (char far *)sbrk(0);
+#endif
+
+	paras = (FP_SEG(fptr)+((FP_OFF(fptr)+15) >> 4)) - _psp;
+				/* resident paras, counting from PSP:0 */
 	return paras;
 }
 
@@ -705,7 +716,7 @@ static void keep(unsigned char rval, unsigned short paras) {
 }
 
 /* Naive implementation of atol(), only decimal digits allowed, no signs */
-static long minimal_atol(const char *s) NON_RESIDENT;
+static long minimal_atol(const char *s) NON_RES_TEXT;
 static long minimal_atol(const char *s) {
 	long val;
 	const char *p;
