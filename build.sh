@@ -2,10 +2,10 @@
 
 if [ x"${COMPILER}" = "xgcc" ] ; then
   export CC="ia16-elf-gcc"
-  export COPT="-Wall -fpack-struct -mcmodel=tiny -c share.c -o share.obj -Os"
+  export COPT="-mtsr -Wall -fpack-struct -mcmodel=tiny -c share.c -o share.obj -Os"
   export XOBJS="gcc_help.obj"
-  export LD="ia16-elf-ld"
-  export LOPT="share.obj ${XOBJS} -o share.com -li86 --script gcc_help.ld -Map=share.map"
+  export LD="ia16-elf-gcc"
+  export LOPT="-mtsr share.obj ${XOBJS} -o share.com -li86 -Wl,-Map=share.map"
   make
 
 elif [ x"${COMPILER}" = "xtcc2-emu" ] ; then

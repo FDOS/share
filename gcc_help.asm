@@ -2,35 +2,6 @@ bits 16
 
 cpu 8086
 
-section .tsr_text
-
-extern __lnon_resident_text
-extern __edata
-extern __snon_resident_text
-extern _start
-
-global tsr_startup
-tsr_startup:
-	pushf
-	push SI
-	push DI
-	push CX
-
-	; copy text out from .bss
-	mov CX, __lnon_resident_text
-	mov SI, __edata
-	mov DI, __snon_resident_text
-	cld
-	rep movsb
-
-	pop CX
-	pop DI
-	pop SI
-	popf
-
-	; jump to standard startup code
-	jmp _start
-
 section .bss
 
 global iregs
