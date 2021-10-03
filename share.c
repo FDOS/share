@@ -28,7 +28,7 @@
 #define getvect(x) _dos_getvect(x)
 #define setvect(x, y) _dos_setvect(x, (__libi86_isr_t)y)
 #define freemem(x) _dos_freemem(x)
-static void keep(unsigned char rval, unsigned short paras) NON_RES_TEXT;
+#define keep(x, y) _dos_keep(x, y)
 
 #define atol(s) minimal_atol(s)
 
@@ -710,17 +710,6 @@ static void bad_params(void) {
 }
 
 #if defined(__GNUC__)
-static void keep(unsigned char rval, unsigned short paras) {
-	union REGS r;
-
-	r.h.ah = 0x31;	// TSR
-	r.h.al = rval;	// return code
-	r.x.dx = paras;	// number of paragraphs to make resident
-	int86(0x21, &r, &r);
-
-	/* never returns */
-}
-
 /* Naive implementation of atol(), only decimal digits allowed, no signs */
 static long minimal_atol(const char *s) NON_RES_TEXT;
 static long minimal_atol(const char *s) {
