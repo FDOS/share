@@ -686,21 +686,27 @@ unsigned short init_tables(void) {
 	return paras;
 }
 
-static void usage(void) {
-	PRINT(ERR,
-		 "Installs file-sharing and locking "
-			"capabilities on your hard disk.\r\n\r\n");
-	PRINT(ERR, progname);
-	PRINT(ERR, " [/F:space] [/L:locks]\r\n\r\n"
+static char msg_usage1[] NON_RES_DATA = "Installs file-sharing and locking "
+			"capabilities on your hard disk.\r\n\r\n";
+static char msg_usage2[] NON_RES_DATA = " [/F:space] [/L:locks]\r\n\r\n"
 		 "  /F:space   Allocates file space (in bytes) "
 			"for file-sharing information.\r\n"
 		 "  /L:locks   Sets the number of files that can "
-			"be locked at one time.\r\n");
+			"be locked at one time.\r\n";
+static char msg_badparams[] NON_RES_DATA = ": parameter out of range!\r\n";
+static char msg_alreadyinstalled[] NON_RES_DATA = " is already installed!\r\n";
+static char msg_outofmemory[] NON_RES_DATA = ": out of memory!\r\n";
+static char msg_installed[] NON_RES_DATA = " installed.\r\n";
+
+static void usage(void) {
+	PRINT(ERR, msg_usage1);
+	PRINT(ERR, progname);
+	PRINT(ERR, msg_usage2);
 }
 
 static void bad_params(void) {
 	PRINT(ERR, progname);
-	PRINT(ERR, ": parameter out of range!\r\n");
+	PRINT(ERR, msg_badparams);
 }
 
 #if defined(__GNUC__)
@@ -823,14 +829,14 @@ int main(int argc, char **argv) {
 
 	if (installed) {
 		PRINT(ERR, progname);
-		PRINT(ERR, " is already installed!\r\n");
+		PRINT(ERR, msg_alreadyinstalled);
 		return 1;
 	}
 
 	top_of_tsr = init_tables();
 	if (top_of_tsr == 0) {
 		PRINT(ERR, progname);
-		PRINT(ERR,": out of memory!\r\n");
+		PRINT(ERR, msg_outofmemory);
 		return 2;
 	}
 #if defined(__GNUC__)
@@ -846,7 +852,7 @@ int main(int argc, char **argv) {
 
 		/* Let them know we're installed. */
 	PRINT(OUT, progname);
-	PRINT(OUT, " installed.\r\n");
+	PRINT(OUT, msg_installed);
 
 		/* Any access to environment variables must */
 		/* be done prior to this point.  Here we    */
