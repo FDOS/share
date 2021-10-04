@@ -7,13 +7,13 @@
 
 /* #include <stdio.h> */ /* (fprintf removed...) */
 /* #include <fcntl.h> */ /* Not used, using defines below... */
-#include <stdlib.h>	/* _psp, NULL, malloc, free, atol */
 #include <dos.h>	/* MK_FP, FP_OFF, FP_SEG, int86, intdosx, */
 			/* freemem, keep */
 #include <string.h>	/* strchr, strlen, memset */
 
 #ifdef __TURBOC__
 #include <io.h>		/* write (what else?) */
+#include <stdlib.h>	/* _psp, NULL, malloc, free, atol */
 #define NON_RES_TEXT
 #define NON_RES_DATA
 #define NON_RES_BSS
@@ -649,7 +649,6 @@ unsigned short init_tables(void) {
 	char far *fptr;
 #if defined(__TURBOC__)
 	char *onebyte;
-#endif
 
 	file_table_size = file_table_size_bytes / sizeof(file_t);
 	if ((file_table = malloc(file_table_size_bytes)) == NULL)
@@ -663,7 +662,6 @@ unsigned short init_tables(void) {
 	}
 	memset(lock_table, 0, lock_table_size * sizeof(lock_t));
 
-#if defined(__TURBOC__)
 	/* Allocate a single byte.  This tells us the size of the TSR.
 	   Free the byte when we know the address. */
 	onebyte = malloc(1);
@@ -678,6 +676,21 @@ unsigned short init_tables(void) {
 	free(onebyte);
 
 #else /* GNUC */
+	char *p;
+	unsigned int lock_table_size_bytes;
+
+	file_table_size = file_table_size_bytes / sizeof(file_t);
+	lock_table_size_bytes = lock_table_size * sizeof(lock_t);
+
+	p = sbrk(file_table_size_bytes + lock_table_size_bytes);
+	if (p == (void *)-1)
+		return 0;
+
+	// No need to memset() as sbrk() does it for us
+
+	file_table = (void *)p;
+	lock_table = (void *)(p + file_table_size_bytes);
+
 	fptr = (char far *)sbrk(0);
 #endif
 
