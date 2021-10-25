@@ -88,6 +88,9 @@ istart:
 	pop SS
 	mov SP, [top_of_stack]
 
+	; insure UP (Direction Flag = 0) for our C code
+	cld
+
 	; call our handler
 	call inner_handler
 
