@@ -39,16 +39,13 @@ extern inner_handler
 global handler2f
 handler2f:
 	; IBM Interrupt Sharing Protocol header
-	jmp istart
+	jmp strict short istart
 global old_handler2f
 old_handler2f: dd 0
 	dw 0x424b	; ("KB")
 	db 0		; flag
-	jmp .hwreset
+	jmp strict short hwreset
 	times 7 db 0	; pad 7 bytes
-.hwreset:
-	iret
-
 istart:
 	; save the input DS
 	mov  [CS:iregs.ds], DS
@@ -103,6 +100,7 @@ istart:
 	; return from interrupt if we handled it
 	cmp  word [CS:need_to_chain], 0
 	jnz  .run_old
+hwreset: equ $
 	iret
 
 .run_old:
