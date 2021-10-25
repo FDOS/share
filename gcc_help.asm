@@ -1,3 +1,5 @@
+%define MULTIPLEX_ID 0x10
+
 bits 16
 
 cpu 8086
@@ -47,6 +49,16 @@ old_handler2f: dd 0
 	jmp strict short hwreset
 	times 7 db 0	; pad 7 bytes
 istart:
+	; Check whether it is a call for us.
+	;  Doing this early speeds up the great
+	;  majority of cases and allows for some
+	;  degree of reentrant calls, assuming
+	;  there are not multiple 2F.10 calls,
+	;  without messing up our inreentrant
+	;  old_ss and old_sp variables.
+	cmp ah, MULTIPLEX_ID
+	jne .run_old
+
 	; save the input DS
 	mov  [CS:iregs.ds], DS
 
@@ -94,11 +106,19 @@ istart:
 	push word [iregs.flags]
 	popf
 
+	; Although this is a 16-bit variable it is
+	;  valid to check only the low 8 bits as
+	;  the variable is set either to zero or one.
+	; Note that we restore ds between the cmp and
+	;  the jnz. This is a small optimisation to
+	;  avoid a cs override prefix. The Zero Flag
+	;  is unaffected by the mov.
+	cmp byte [need_to_chain], 0
+
 	; restore caller's DS
 	mov  DS, [iregs.ds]
 
 	; return from interrupt if we handled it
-	cmp  word [CS:need_to_chain], 0
 	jnz  .run_old
 hwreset: equ $
 	iret
