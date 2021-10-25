@@ -105,6 +105,4 @@ hwreset: equ $
 
 .run_old:
 	; jump to old handler that will iret
-	push word [CS:old_handler2f + 2]
-	push word [CS:old_handler2f]
-	retf
+	jmp far [CS:old_handler2f]
