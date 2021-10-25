@@ -19,7 +19,7 @@ iregs:
 	.ax: resw 1
 	.ip: resw 1
 	.cs: resw 1
-	.flags: resw 1
+	.flags: resw 1		; (not used by us)
 
 global need_to_chain
 need_to_chain:
@@ -75,9 +75,11 @@ istart:
 	mov  [iregs.cx], CX
 	mov  [iregs.bx], BX
 	mov  [iregs.ax], AX
-	; don't need IP or CS
-	pushf
-	pop word [iregs.flags]
+	; don't need IP or CS or flags
+	; (flags weren't ever read or written,
+	;  and setting flags before iret is pointless.
+	;  setting them before chaining is minimally
+	;  more useful but not needed here.)
 
 	; setup stack
 	mov [old_ss], SS
@@ -102,9 +104,6 @@ istart:
 	mov  CX, [iregs.cx]
 	mov  BX, [iregs.bx]
 	mov  AX, [iregs.ax]
-
-	push word [iregs.flags]
-	popf
 
 	; Although this is a 16-bit variable it is
 	;  valid to check only the low 8 bits as
