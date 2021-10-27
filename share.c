@@ -257,6 +257,7 @@ static void interrupt far handler2f(intregs_t iregs) {
 extern void __far __interrupt (*i2D_next)(void);
 /* Prototype for NASM interrupt handler function */
 extern void __far __interrupt __attribute__((near_section)) i2D_handler(void);
+extern uint8_t amisnum;
 
 /* Within IBM Interrupt Sharing Protocol header */
 extern void __far __interrupt (*old_handler2f)(void);
@@ -714,6 +715,7 @@ static char msg_usage2[] NON_RES_DATA = " [/F:space] [/L:locks]\r\n\r\n"
 static char msg_badparams[] NON_RES_DATA = ": parameter out of range!\r\n";
 static char msg_alreadyinstalled[] NON_RES_DATA = " is already installed!\r\n";
 static char msg_outofmemory[] NON_RES_DATA = ": out of memory!\r\n";
+static char msg_nofreeamisnum[] NON_RES_DATA = ": no free AMIS multiplex number!\r\n";
 static char msg_installed[] NON_RES_DATA = " installed.\r\n";
 
 static void usage(void) {
@@ -851,6 +853,30 @@ int main(int argc, char **argv) {
 	top_of_stack = (top_of_tsr << 4);
 #endif
 
+
+	/* following code adapted from Ralf Brown's FINDTSR.C
+	 * of 1992-09-12, Public Domain */
+	{
+	  int mpx;
+	  union REGS regs;
+	  /* loop through all 256 multiplex numbers */
+	  for (mpx = 0 ; mpx <= 255 ; mpx++)
+	  {
+	    regs.h.ah = mpx ;
+	    regs.h.al = 0 ;  /* installation check */
+	    int86(0x2D,&regs,&regs) ;
+	    if (regs.h.al == 0) /* free ? */
+	    {
+	      amisnum = mpx;
+	      break;
+	    }
+	  }
+	  if (mpx == 256) {
+		PRINT(ERR, progname);
+		PRINT(ERR, msg_nofreeamisnum);
+		return 4;
+	  }
+	}
 
 
 		/* Hook the interrupt for the handler routine. */
