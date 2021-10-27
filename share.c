@@ -777,7 +777,8 @@ int main(int argc, char **argv) {
 
 		/* See if the TSR is already installed. */
 	/* disable(); */	/* no multitasking, so don't worry */
-	if (getvect(MUX_INT_NO) != NULL) {
+	if (FP_SEG(getvect(MUX_INT_NO)) != 0
+		&& FP_OFF(getvect(MUX_INT_NO)) != 0xFFFF) {
 		union REGS regs;
 		/* enable(); */
 		regs.h.ah = MULTIPLEX_ID;
