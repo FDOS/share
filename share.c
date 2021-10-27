@@ -716,6 +716,7 @@ static char msg_badparams[] NON_RES_DATA = ": parameter out of range!\r\n";
 static char msg_alreadyinstalled[] NON_RES_DATA = " is already installed!\r\n";
 static char msg_outofmemory[] NON_RES_DATA = ": out of memory!\r\n";
 static char msg_nofreeamisnum[] NON_RES_DATA = ": no free AMIS multiplex number!\r\n";
+static char msg_invalidhandler[] NON_RES_DATA = ": invalid interrupt 2Fh or 2Dh handler!\r\n";
 static char msg_installed[] NON_RES_DATA = " installed.\r\n";
 
 static void usage(void) {
@@ -853,6 +854,15 @@ int main(int argc, char **argv) {
 	top_of_stack = (top_of_tsr << 4);
 #endif
 
+
+	if (FP_SEG(getvect(0x2D)) == 0
+		|| FP_OFF(getvect(0x2D)) == 0xFFFF
+		|| FP_SEG(getvect(MUX_INT_NO)) == 0
+		|| FP_OFF(getvect(MUX_INT_NO)) == 0xFFFF) {
+		PRINT(ERR, progname);
+		PRINT(ERR, msg_invalidhandler);
+		return 5;
+	}
 
 	/* following code adapted from Ralf Brown's FINDTSR.C
 	 * of 1992-09-12, Public Domain */
