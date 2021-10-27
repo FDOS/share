@@ -128,6 +128,7 @@ global i2D_handler
 global i2D_next
 i2D_handler equ i2D
 i2D_next equ i2D.next
+
 iispentry i2D, 0, i2D
 	cmp ah, 0
 global amisnum
@@ -170,18 +171,14 @@ End of C. Masloch TSR example code
 
 extern inner_handler
 
-i2F:
 global handler2f
-handler2f:
-	; IBM Interrupt Sharing Protocol header
-	jmp strict short istart
 global old_handler2f
-old_handler2f: dd 0
-	dw 0x424b	; ("KB")
-	db 0		; flag
-	jmp strict short hwreset
-	times 7 db 0	; pad 7 bytes
-istart:
+handler2f equ i2F
+old_handler2f equ i2F.next
+
+	; IBM Interrupt Sharing Protocol header
+iispentry i2F, 0, i2D
+
 	; Check whether it is a call for us.
 	;  Doing this early speeds up the great
 	;  majority of cases and allows for some
@@ -255,7 +252,6 @@ istart:
 
 	; return from interrupt if we handled it
 	jnz  .run_old
-hwreset: equ $
 	iret
 
 .run_old:
