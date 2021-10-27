@@ -1,0 +1,80 @@
+[list -]
+%if 0
+
+AMIS.MAC - NASM macros and structures to work with the IISP and AMIS
+Public Domain by C. Masloch, 2008-2009
+
+I recommend reading AMIS itself for the exact function descriptions.
+
+%endif
+
+%ifndef __AMIS_MAC__
+%assign __AMIS_MAC__ 1
+
+
+	struc IISPENTRY
+ieEntry:	resb 2			; 00h "jmp short" to ieStart
+ieNext:		resd 1			; 02h next vector
+ieSignature:	resb 2			; 06h "KB"
+ieEOI:		resb 1			; 08h 80h if issues "end of interrupt"
+ieJmphwreset:	resb 2			; 09h "jmp short" to hardware reset
+ieReserved:	resb 7			; 0Bh initialize to 0, don't depend on these
+ieStart:				; 12h actual vector code
+	endstruc
+
+	struc AMISSIGNATURE
+asVendor:	resb 8			; 00h blank padded vendor name
+asProduct:	resb 8			; 08h blank padded product name
+asDescription:	resb 1			; 10h ASCIZ description, up to 64 byte
+	endstruc
+
+		; AMIS Int2D functions (in al)
+afInstalled	equ 00h			; installation check
+afEntry		equ 01h			; get private entry
+afUninstall	equ 02h			; uninstall
+afPopup		equ 03h			; request pop-up
+afInterrupts	equ 04h			; determine chained interrupts
+afHotkeys	equ 05h			; get hotkey list
+afDevices	equ 06h			; get device information (changes ah)
+
+; Layout of AMIS interrupt lists:
+; byte:00	Interrupt number. Last entry if 2Dh
+; word:01	IISP interrupt entry in same segment.
+
+		; Generate an IISP interrupt entry
+		;
+		; %1 = label for interrupt entry
+		; %2 = End of Interrupt flag, default 0
+		;	0 means usual interrupt hook which passes the interrupt down,
+		;	80h means the interrupt isn't passed to previous handlers
+		; %3 = label of retf opcode used (actual used label is %3.hwreset)
+		;	If no label is specified, a dummy hardware reset opcode is
+		;	created in front of the actual interrupt entry.
+		; %4 = to what boundary to align entrypoint, default 2
+	%imacro iispentry 1-4.nolist 0,,2
+%ifempty %3
+	iisphwreset %1
+%endif
+	align %4
+%1:		jmp short .start
+.next:		dd 0
+.signature:	db "KB"
+.eoi:		db %2
+%ifnempty %3
+.jmphwreset:	jmp short %3.hwreset
+%else
+.jmphwreset:	jmp short %1.hwreset
+%endif
+.reserved:	times 7 db 0
+.start:
+	%endmacro
+
+		; Generate a retf opcode for an IISP compatible interrupt entry, with label
+		;
+		; %1 = label for retf opcode (actual generated label is %1.hwreset)
+	%imacro iisphwreset 1.nolist
+%1.hwreset:	retf
+	%endmacro
+
+%endif
+[list +]
