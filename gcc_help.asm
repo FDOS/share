@@ -178,7 +178,7 @@ uninstall:
 	jmp @F
 
 .return:
-	lleave
+	lleave , forcerestoresp
 	pop dx
 	pop cx
 	pop bx
