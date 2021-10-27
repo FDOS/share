@@ -307,14 +307,14 @@ uninstall_found_installed:	; ah = AMIS multiplex number of resident copy
 	push bx
 	mov dx, UnhookInterruptSim
 	mov cx, .simulated
-	jmp short loopamisintr
+	jmp loopamisintr
 .simulated:
 	jc unhookerror
 	pop bx				; restore ds:bx->
 
 	mov dx, UnhookInterrupt
 	mov cx, .unhooked
-	jmp short loopamisintr
+	jmp loopamisintr
 .unhooked:
 	jc unhookerrorcritical
 
@@ -338,6 +338,55 @@ uninstall_found_installed:	; ah = AMIS multiplex number of resident copy
 					; (but interrupts are already unhooked now)
 
 .done:
+
+clear_sft_shroff:
+	mov dx, 3Bh			; default SFT entry size
+	mov ax, 1216h
+	xor bx, bx			; SFT handle 0
+	stc
+	int 2Fh				; es:di -> SFT entry
+	jc .gotsize
+	test bx, bx			; bx = relative entry-in-table
+	jnz .gotsize			; if unexpected (nonzero) -->
+	mov cx, di			; remember offset
+	push es				; remember segment
+	mov ax, 1216h
+	inc bx				; = SFT entry 1
+	stc
+	int 2Fh
+	pop ax				; restore segment
+	jc .gotsize
+	dec bx				; expect 1
+	jnz .gotsize			; wasn't 1 -->
+	sub di, cx			; = size of entry
+	mov cx, es
+	cmp cx, ax			; segment matches ?
+	jne .gotsize			; if no -->
+	mov dx, di			; take computed size
+.gotsize:
+
+	mov ah, 52h
+	int 21h
+	les bx, [es:bx + 4]		; -> first SFT table
+.tableloop:
+	cmp bx, -1			; was last table ?
+	je .done			; yes -->
+	mov di, 6			; es:bx + di -> first entry
+	mov cx, word [es:bx + 4]	; amount of entries this table
+	jcxz .tablenext
+.entryloop:
+	cmp word [es:bx + di], 0	; referenced ?
+	je .entrynext			; no -->
+	or word [es:bx + di + 33h], -1	; reset sharing record number
+.entrynext:
+	add di, dx			; es:bx + di -> next entry, if any
+	loop .entryloop
+.tablenext:
+	les bx, [es:bx]			; -> next table, bx = -1 if none
+	jmp .tableloop
+
+.done:
+
 	xor ax, ax			; return code: 0, success
 @@:
 	jmp uninstall.return
