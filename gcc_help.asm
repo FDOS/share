@@ -36,8 +36,141 @@ old_sp:
 
 section .text
 
+
+%if 0
+
+Resident code of TSR example
+ 2020 by C. Masloch
+
+Usage of the works is permitted provided that this
+instrument is retained with the works, so that any entity
+that uses the works is notified of this instrument.
+
+DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
+
+%endif
+
+%include "lmacros3.mac"
+%include "AMIS.MAC"
+
+%if 0
+
+Supported Int2D functions:
+
+AMIS - Installation check
+INP:	al = 00h
+OUT:	al = 0FFh
+	cx = Private version number (currently 0100h)
+	dx:di-> signature: "ecm     ","SHARE   "
+
+AMIS - Get private entry point - NOP: no private entry point
+INP:	al = 01h
+OUT:	al = 00h
+
+AMIS - Uninstall - NOP: no resident uninstaller or NOP: can't uninstall
+INP:	al = 02h
+OUT:	If installed from command line,
+	 al = 03h
+	 bx = memory block of resident TSR (cs)
+
+AMIS - Request pop-up - NOP: no pop-up
+INP:	al = 03h
+OUT:	al = 00h
+
+AMIS - Determine chained interrupts
+INP:	al = 04h
+OUT:	al = 04h
+	dx:bx-> interrupt hook list (Int2D always.)
+
+AMIS - Get hotkeys - NOP: no hotkeys
+INP:	al = 05h
+OUT:	al = 00h
+
+AMIS - Get device driver information - NOP: no device
+INP:	al = 06h
+OUT:	al = 00h
+
+AMIS - Reserved for AMIS
+INP:	al = 07h..0Fh
+OUT:	al = 00h
+
+TSR - Reserved for TSR
+INP:	al = 10h..FFh
+OUT:	al = 00h
+
+%endif
+
+
+	align 2, db 0
+amissig:
+.ven:	fill 8,32,db "ecm"		; vendor
+.prod:	fill 8,32,db "SHARE"		; product
+.desc:	asciz "FreeDOS file-sharing and locking capabilities"	; description
+%if $ - .desc > 64
+ %error AMIS description too long
+%endif
+
+
+amisintr:
+.i2F:	db 2Fh
+	dw i2F
+.i2D:	db 2Dh
+	dw i2D
+
+
+i2D.uninstall:
+	inc ax				; (= 03h) safe to remove but no resident uninstaller
+	mov bx, cs			; = segment
+i2D.hwreset equ $-1		; (second byte of mov bx, cs is same as the retf opcode)
+	iret
+
+global i2D_handler
+global i2D_next
+i2D_handler equ i2D
+i2D_next equ i2D.next
+iispentry i2D, 0, i2D
+	cmp ah, 0
+global amisnum
+amisnum equ $-1				; AMIS multiplex number (data for cmp opcode)
+	je .handle			; our multiplex number -->
+	jmp far [cs:.next]		; else go to next handler -->
+
+.handle:
+	test al, al
+	jz .installationcheck		; installation check -->
+	cmp al, 02h
+	je .uninstall			; uninstallation -->
+	cmp al, 04h
+	je .determineinterrupts		; determine hooked interrupts -->
+				; all other functions are reserved or not supported by TSR
+.nop:
+	mov al, 0			; show not implemented
+	iret
+
+.installationcheck:
+	dec al				; (= FFh) show we're here
+	mov cx, 100h			; = version
+	mov di, amissig			; dx:di -> AMIS signature strings of this program
+.iret_dx_cs:
+	mov dx, cs
+.iret:
+	iret
+
+.determineinterrupts:			; al = 04h, always returns list
+	mov bx, amisintr		; dx:bx -> hooked interrupts list
+	jmp short .iret_dx_cs
+
+
+%if 0
+
+End of C. Masloch TSR example code
+
+%endif
+
+
 extern inner_handler
 
+i2F:
 global handler2f
 handler2f:
 	; IBM Interrupt Sharing Protocol header
