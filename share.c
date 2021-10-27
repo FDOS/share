@@ -258,6 +258,7 @@ extern void __far __interrupt (*i2D_next)(void);
 /* Prototype for NASM interrupt handler function */
 extern void __far __interrupt __attribute__((near_section)) i2D_handler(void);
 extern uint8_t amisnum;
+extern uint16_t uninstall(void) NON_RES_TEXT;
 
 /* Within IBM Interrupt Sharing Protocol header */
 extern void __far __interrupt (*old_handler2f)(void);
@@ -718,6 +719,13 @@ static char msg_outofmemory[] NON_RES_DATA = ": out of memory!\r\n";
 static char msg_nofreeamisnum[] NON_RES_DATA = ": no free AMIS multiplex number!\r\n";
 static char msg_invalidhandler[] NON_RES_DATA = ": invalid interrupt 2Fh or 2Dh handler!\r\n";
 static char msg_installed[] NON_RES_DATA = " installed.\r\n";
+static char msg_removed[] NON_RES_DATA = " removed.\r\n";
+static char msg_cannotremove[] NON_RES_DATA = ": cannot remove, ";
+static char msg_notinstalled[] NON_RES_DATA = "not yet installed.\r\n";
+static char msg_somefailure[] NON_RES_DATA = "some failure.\r\n";
+static char msg_unhookerror[] NON_RES_DATA = "handlers hooked AMIS-incompatible.\r\n";
+static char msg_unhookerrorcritical[] NON_RES_DATA = "internal unhook error.\r\n";
+static char msg_unknownerror[] NON_RES_DATA = "unknown error.\r\n";
 
 static void usage(void) {
 	PRINT(ERR, msg_usage1);
@@ -754,7 +762,7 @@ static long minimal_atol(const char *s) {
 int main(int argc, char **argv) {
 	unsigned short far *usfptr;
 	unsigned short top_of_tsr;
-	int installed = 0;
+	int installed = 0, uninstallrequested = 0;
 	int i;
 
 		/* Extract program name from argv[0] into progname. */
@@ -801,6 +809,12 @@ int main(int argc, char **argv) {
 		case '?':
 			usage();
 			return 3;
+		case 'u':
+		case 'U':
+		case 'r':
+		case 'R':
+			uninstallrequested = 1;
+			break;
 		case 'f':
 		case 'F':
 			arg++;
@@ -833,6 +847,33 @@ int main(int argc, char **argv) {
 				return 3;
 			}
 			break;
+		}
+	}
+
+	if (uninstallrequested) {
+		uint16_t rc = uninstall();
+		PRINT(ERR, progname);
+		if (rc == 0) {
+			PRINT(ERR, msg_removed);
+			return 0;
+		}
+		PRINT(ERR, msg_cannotremove);
+		switch (rc) {
+		  case 1:
+			PRINT(ERR, msg_notinstalled);
+			return 6;
+		  case 2:
+			PRINT(ERR, msg_somefailure);
+			return 7;
+		  case 3:
+			PRINT(ERR, msg_unhookerror);
+			return 8;
+		  case 4:
+			PRINT(ERR, msg_unhookerrorcritical);
+			return 9;
+		  default:
+			PRINT(ERR, msg_unknownerror);
+			return 10;
 		}
 	}
 
