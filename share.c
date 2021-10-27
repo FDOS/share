@@ -254,6 +254,11 @@ static void interrupt far handler2f(intregs_t iregs) {
 
 #elif defined(__GNUC__)
 /* Within IBM Interrupt Sharing Protocol header */
+extern void __far __interrupt (*i2D_next)(void);
+/* Prototype for NASM interrupt handler function */
+extern void __far __interrupt __attribute__((near_section)) i2D_handler(void);
+
+/* Within IBM Interrupt Sharing Protocol header */
 extern void __far __interrupt (*old_handler2f)(void);
 
 /* Prototype for NASM wrapper function */
@@ -846,8 +851,12 @@ int main(int argc, char **argv) {
 	top_of_stack = (top_of_tsr << 4);
 #endif
 
+
+
 		/* Hook the interrupt for the handler routine. */
 	/* disable(); */
+	i2D_next = getvect(0x2D);
+	setvect(0x2D, i2D_handler);
 	old_handler2f = getvect(MUX_INT_NO);
 	setvect(MUX_INT_NO,handler2f);
 	/* enable(); */
