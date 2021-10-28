@@ -781,26 +781,26 @@ int displaystatus(uint16_t mpx) {
 		mpx = asm_find_resident();
 	}
 	if (mpx & 0xFF00) {
-		PRINT(ERR, msg_notresident);
+		PRINT(OUT, msg_notresident);
 		return 1;
 	}
 	asm_get_status(mpx, &s);
-	PRINT(ERR, msg_patchstatus);
+	PRINT(OUT, msg_patchstatus);
 	switch (s.patchstatus) {
 	  case 0:
-		PRINT(ERR, msg_patchstatus_notsupported);
+		PRINT(OUT, msg_patchstatus_notsupported);
 		break;
 	  case 1:
-		PRINT(ERR, msg_patchstatus_indeterminate);
+		PRINT(OUT, msg_patchstatus_indeterminate);
 		break;
 	  case 2:
-		PRINT(ERR, msg_patchstatus_needed);
+		PRINT(OUT, msg_patchstatus_needed);
 		break;
 	  case 3:
-		PRINT(ERR, msg_patchstatus_notneeded);
+		PRINT(OUT, msg_patchstatus_notneeded);
 		break;
 	  default:
-		PRINT(ERR, msg_patchstatus_unknown);
+		PRINT(OUT, msg_patchstatus_unknown);
 		break;
 	}
 	return 0;
@@ -908,15 +908,15 @@ int main(int argc, char **argv) {
 		uint16_t mpx = asm_find_resident();
 		asm_get_status(mpx, &s);
 		rc = asm_uninstall(mpx);
-		PRINT(ERR, progname);
+		PRINT(OUT, progname);
 		if (rc == 0) {
-			PRINT(ERR, msg_removed);
+			PRINT(OUT, msg_removed);
 			if (2 == s.patchstatus) {
 				uint8_t far * share_installed
 				  = MK_FP(FP_SEG(getvect(0x31)), s.patchoffset);
 				if (*share_installed) {
 					*share_installed = 0;
-					PRINT(ERR, msg_patched);
+					PRINT(OUT, msg_patched);
 				}
 			}
 			return 0;
