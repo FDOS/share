@@ -103,8 +103,16 @@ INP:	al = 21h
 OUT:	al = size of returned data (not 0 if supported, 3 for now)
 	dx:bx -> patch offset word, then patch status byte
 
+SHARE - Get data on free and total structures
+INP:	al = 22h
+OUT:	al = FFh if supported
+	bx = file table total size (amount entries)
+	cx = file table free amount entries
+	si = lock table total size (amount entries)
+	di = lock table free amount entries
+
 TSR - Reserved for TSR
-INP:	al = 22h..FFh
+INP:	al = 23h..FFh
 OUT:	al = 00h
 
 %endif
@@ -160,6 +168,8 @@ amisnum equ $-1				; AMIS multiplex number (data for cmp opcode)
 	je .determineinterrupts		; determine hooked interrupts -->
 	cmp al, 21h
 	je .ctrl1
+	cmp al, 22h
+	je .getdata
 				; all other functions are reserved or not supported by TSR
 .nop:
 	mov al, 0			; show not implemented
@@ -182,6 +192,19 @@ amisnum equ $-1				; AMIS multiplex number (data for cmp opcode)
 	mov al, ctrl1.end - ctrl1
 	mov bx, ctrl1
 	jmp short .iret_dx_cs
+
+extern file_table_size
+extern file_table_free
+extern lock_table_size
+extern lock_table_free
+
+.getdata:
+	mov al, 0FFh
+	mov bx, word [cs:file_table_size]
+	mov cx, word [cs:file_table_free]
+	mov si, word [cs:lock_table_size]
+	mov di, word [cs:lock_table_free]
+	iret
 
 
 section .text.startup
@@ -254,6 +277,10 @@ findinstalled:
 
 	struc status_struct
 ssPatchOffset:	resw 1
+ssFileSize:	resw 1
+ssFileFree:	resw 1
+ssLockSize:	resw 1
+ssLockFree:	resw 1
 ssPatchStatus:	resb 1
 	endstruc
 
@@ -271,7 +298,13 @@ asm_get_status:
 	push di
 
 	mov di, word [bp + ?struct]
-	mov byte [di + ssPatchStatus], 0
+	push ds
+	pop es			; es:di -> struc passed in
+	push di
+	mov cx, status_struct_size
+	mov al, 0
+	rep stosb
+	pop di
 
 	mov ax, word [bp + ?mpx]
 	xchg al, ah		; ah = multiplex number
@@ -281,13 +314,26 @@ asm_get_status:
 	mov al, 21h
 	int 2Dh
 	cmp al, 3
-	jb .ret
-	push ds
-	pop es			; es:di -> struc passed in
-	mov ds, dx
-	mov si, bx		; ds:si -> ctrl1 of TSR
-	movsw
-	movsb			; copy over patch offset and status
+	jb @F
+	mov es, dx
+	mov dx, word [es:bx]
+	mov word [di + ssPatchOffset], dx
+				; copy over patch offset
+	mov al, byte [es:bx + 2]
+	mov byte [di + ssPatchStatus], al
+@@:
+
+	mov al, 22h
+	xchg dx, di
+	int 2Dh
+	xchg dx, di
+	cmp al, 0FFh
+	jne @F
+	mov word [di + ssFileSize], bx
+	mov word [di + ssFileFree], cx
+	mov word [di + ssLockSize], si
+	mov word [di + ssLockFree], dx
+@@:
 
 .ret:
 	pop di

@@ -154,9 +154,11 @@ typedef struct {
 		/* ------------- GLOBALS ------------- */
 static char progname[9] NON_RES_BSS;
 static unsigned int file_table_size_bytes NON_RES_DATA = 2048;
-static unsigned int file_table_size = 0;	/* # of file_t we can have */
+unsigned int file_table_size = 0;	/* # of file_t we can have */
+unsigned int file_table_free = 0;
 static file_t *file_table = NULL;
-static unsigned int lock_table_size = 20;	/* # of lock_t we can have */
+unsigned int lock_table_size = 20;	/* # of lock_t we can have */
+unsigned int lock_table_free = 20;
 static lock_t *lock_table = NULL;
 
 
@@ -357,12 +359,16 @@ static void remove_all_locks(int fileno) {
 
 	for (i = 0; i < lock_table_size; i++) {
 		lptr = &lock_table[i];
-		if (lptr->fileno == fileno) lptr->used = 0;
+		if (lptr->used && lptr->fileno == fileno) {
+			lptr->used = 0;
+			++ lock_table_free;
+		}
 	}
 }
 
 static void free_file_table_entry(int fileno) {
 	file_table[fileno].filename[0] = '\0';
+	++ file_table_free;
 }
 
 /* DOS 7 does not have read-only restrictions, MED 08/2004 */
@@ -505,6 +511,7 @@ static int open_check
 	for (i = 0; i < sizeof(fptr->filename); i++) {
 		if ((fptr->filename[i] = filename[i]) == '\0') break;
 	}
+	-- file_table_free;
 	fptr->psp = psp;
 	fptr->openmode = (unsigned char)openmode;
 	fptr->sharemode = (unsigned char)sharemode;
@@ -611,6 +618,7 @@ static int lock_unlock
 				&& (lptr->start == ofs)
 				&& (lptr->end == endofs)   ) {
 				lptr->used = 0;
+				++ lock_table_free;
 				return 0;
 			}
 		}
@@ -629,6 +637,7 @@ static int lock_unlock
 				lptr->end = ofs+(unsigned long)len;
 				lptr->fileno = fileno;
 				lptr->psp = psp;
+				-- lock_table_free;
 				return 0;
 			}
 		}
@@ -689,6 +698,8 @@ unsigned short init_tables(void) {
 
 	file_table_size = file_table_size_bytes / sizeof(file_t);
 	lock_table_size_bytes = lock_table_size * sizeof(lock_t);
+	file_table_free = file_table_size;
+	lock_table_free = lock_table_size;
 
 	p = sbrk(file_table_size_bytes + lock_table_size_bytes);
 	if (p == (void *)-1)
@@ -773,8 +784,25 @@ static long minimal_atol(const char *s) {
 }
 #endif
 
+
+void displaynumber(int handle, uint16_t number) NON_RES_TEXT;
+void displaynumber(int handle, uint16_t number) {
+	char buffer[6];
+	int index = 5;
+	buffer[index--] = 0;
+	do {
+		buffer[index--] = (number % 10) + '0';
+		number /= 10;
+	} while (number);
+	PRINT(handle, &buffer[index + 1]);
+}
+
 typedef struct {
 	uint16_t patchoffset;
+	uint16_t filesize;
+	uint16_t filefree;
+	uint16_t locksize;
+	uint16_t lockfree;
 	uint8_t patchstatus;
 } status_struct;
 
@@ -809,6 +837,16 @@ int displaystatus(uint16_t mpx) {
 		PRINT(OUT, msg_patchstatus_unknown);
 		break;
 	}
+	PRINT(OUT, "File table: ");
+	displaynumber(OUT, s.filefree);
+	PRINT(OUT, " free / ");
+	displaynumber(OUT, s.filesize);
+	PRINT(OUT, " total, ");
+	PRINT(OUT, "lock table: ");
+	displaynumber(OUT, s.lockfree);
+	PRINT(OUT, " free / ");
+	displaynumber(OUT, s.locksize);
+	PRINT(OUT, " total\r\n");
 	return 0;
 }
 
