@@ -1048,6 +1048,15 @@ int main(int argc, char **argv) {
 					/* of FP_OFF and FP_SEG ... */
 	freemem(*usfptr);	/* deallocate MCB of ENV segment */
 
+		/* If you run the program with output redirection
+		   such as > NUL then the SFT entries are leaked by
+		   int 21.31 by default. Like most TSRs we never
+		   use the resident's PSP for file operations again
+		   so better close all handles so as not to leak. */
+	for (uint8_t ii = 0; ii < 20; ++ii) {
+		close(ii);	/* clean up file handles */
+	}
+
 		/* Terminate and stay resident. */
 	keep(0,top_of_tsr);	/* size is set to top_of_tsr paragraphs */
 	return 0;
