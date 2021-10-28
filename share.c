@@ -720,6 +720,7 @@ static char msg_usage2[] NON_RES_DATA = " [/F:space] [/L:locks] [/U] [/S] [/O]\r
 		 ;
 static char msg_badparams[] NON_RES_DATA = ": parameter out of range!\r\n";
 static char msg_alreadyinstalled[] NON_RES_DATA = " is already installed!\r\n";
+static char msg_isinstalled[] NON_RES_DATA = " is installed resident.\r\n";
 static char msg_outofmemory[] NON_RES_DATA = ": out of memory!\r\n";
 static char msg_nofreeamisnum[] NON_RES_DATA = ": no free AMIS multiplex number!\r\n";
 static char msg_invalidhandler[] NON_RES_DATA = ": invalid interrupt 2Fh or 2Dh handler!\r\n";
@@ -955,8 +956,13 @@ int main(int argc, char **argv) {
 		/* Now try to install. */
 
 	if (installed) {
-		PRINT(ERR, progname);
-		PRINT(ERR, msg_alreadyinstalled);
+		if (statusrequested || onlyoptions) {
+			PRINT(OUT, progname);
+			PRINT(OUT, msg_isinstalled);
+		} else {
+			PRINT(ERR, progname);
+			PRINT(ERR, msg_alreadyinstalled);
+		}
 		if (statusrequested) {
 			(void)displaystatus(0xFFFF);
 		}
