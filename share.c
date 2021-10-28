@@ -258,7 +258,8 @@ extern void __far __interrupt (*i2D_next)(void);
 /* Prototype for NASM interrupt handler function */
 extern void __far __interrupt __attribute__((near_section)) i2D_handler(void);
 extern uint8_t amisnum;
-extern uint16_t uninstall(void) NON_RES_TEXT;
+extern uint16_t asm_find_resident() NON_RES_TEXT;
+extern uint16_t asm_uninstall(uint16_t mpx) NON_RES_TEXT;
 
 /* Within IBM Interrupt Sharing Protocol header */
 extern void __far __interrupt (*old_handler2f)(void);
@@ -726,6 +727,13 @@ static char msg_somefailure[] NON_RES_DATA = "some failure.\r\n";
 static char msg_unhookerror[] NON_RES_DATA = "handlers hooked AMIS-incompatible.\r\n";
 static char msg_unhookerrorcritical[] NON_RES_DATA = "internal unhook error.\r\n";
 static char msg_unknownerror[] NON_RES_DATA = "unknown error.\r\n";
+static char msg_notresident[] NON_RES_DATA = "Program is not resident!\r\n";
+static char msg_patchstatus[] NON_RES_DATA = "Patch status: ";
+static char msg_patchstatus_notsupported[] NON_RES_DATA = "not supported by TSR.\r\n";
+static char msg_patchstatus_indeterminate[] NON_RES_DATA = "indeterminate.\r\n";
+static char msg_patchstatus_needed[] NON_RES_DATA = "needed.\r\n";
+static char msg_patchstatus_notneeded[] NON_RES_DATA = "not needed.\r\n";
+static char msg_patchstatus_unknown[] NON_RES_DATA = "unknown..\r\n";
 
 static void usage(void) {
 	PRINT(ERR, msg_usage1);
@@ -758,11 +766,50 @@ static long minimal_atol(const char *s) {
 }
 #endif
 
+typedef struct {
+	uint16_t patchoffset;
+	uint8_t patchstatus;
+} status_struct;
+
+extern void asm_get_status(uint16_t mpx, status_struct * s) NON_RES_TEXT;
+
+int displaystatus(uint16_t mpx) NON_RES_TEXT;
+int displaystatus(uint16_t mpx) {
+	status_struct s;
+	if (mpx == 0xFFFF) {
+		mpx = asm_find_resident();
+	}
+	if (mpx & 0xFF00) {
+		PRINT(ERR, msg_notresident);
+		return 1;
+	}
+	asm_get_status(mpx, &s);
+	PRINT(ERR, msg_patchstatus);
+	switch (s.patchstatus) {
+	  case 0:
+		PRINT(ERR, msg_patchstatus_notsupported);
+		break;
+	  case 1:
+		PRINT(ERR, msg_patchstatus_indeterminate);
+		break;
+	  case 2:
+		PRINT(ERR, msg_patchstatus_needed);
+		break;
+	  case 3:
+		PRINT(ERR, msg_patchstatus_notneeded);
+		break;
+	  default:
+		PRINT(ERR, msg_patchstatus_unknown);
+		break;
+	}
+	return 0;
+}
+
 		/* ------------- MAIN ------------- */
 int main(int argc, char **argv) {
 	unsigned short far *usfptr;
 	unsigned short top_of_tsr;
-	int installed = 0, uninstallrequested = 0;
+	int installed = 0, uninstallrequested = 0, statusrequested = 0;
 	int i;
 
 		/* Extract program name from argv[0] into progname. */
@@ -815,6 +862,10 @@ int main(int argc, char **argv) {
 		case 'R':
 			uninstallrequested = 1;
 			break;
+		case 's':
+		case 'S':
+			statusrequested = 1;
+			break;
 		case 'f':
 		case 'F':
 			arg++;
@@ -851,7 +902,8 @@ int main(int argc, char **argv) {
 	}
 
 	if (uninstallrequested) {
-		uint16_t rc = uninstall();
+		uint16_t mpx = asm_find_resident();
+		uint16_t rc = asm_uninstall(mpx);
 		PRINT(ERR, progname);
 		if (rc == 0) {
 			PRINT(ERR, msg_removed);
@@ -882,6 +934,9 @@ int main(int argc, char **argv) {
 	if (installed) {
 		PRINT(ERR, progname);
 		PRINT(ERR, msg_alreadyinstalled);
+		if (statusrequested) {
+			(void)displaystatus(0xFFFF);
+		}
 		return 1;
 	}
 
@@ -942,6 +997,9 @@ int main(int argc, char **argv) {
 		/* Let them know we're installed. */
 	PRINT(OUT, progname);
 	PRINT(OUT, msg_installed);
+	if (statusrequested) {
+		(void)displaystatus(amisnum);
+	}
 
 		/* Any access to environment variables must */
 		/* be done prior to this point.  Here we    */
