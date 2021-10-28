@@ -908,8 +908,8 @@ int main(int argc, char **argv) {
 		uint16_t mpx = asm_find_resident();
 		asm_get_status(mpx, &s);
 		rc = asm_uninstall(mpx);
-		PRINT(OUT, progname);
 		if (rc == 0) {
+			PRINT(OUT, progname);
 			PRINT(OUT, msg_removed);
 			if (2 == s.patchstatus) {
 				uint8_t far * share_installed
@@ -921,6 +921,7 @@ int main(int argc, char **argv) {
 			}
 			return 0;
 		}
+		PRINT(ERR, progname);
 		PRINT(ERR, msg_cannotremove);
 		switch (rc) {
 		  case 1:
