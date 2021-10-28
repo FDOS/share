@@ -842,12 +842,19 @@ iispentry i2F, 0, i2D
 	cmp ah, MULTIPLEX_ID
 	jne .run_old
 
-	; save the input DS
-	mov  [CS:iregs.ds], DS
+	push ds
 
 	; set our data segment
 	push CS
 	pop DS
+
+	test al, al
+	jz install_check
+
+.enter_c_handler:
+
+	; save the input DS
+	pop word [iregs.ds]
 
 	; save regs
 	mov  [iregs.bp], BP
@@ -910,3 +917,95 @@ iispentry i2F, 0, i2D
 .run_old:
 	; jump to old handler that will iret
 	jmp far [CS:old_handler2f]
+
+
+	numdef CMPSTR, 1
+
+install_check:
+	cmp byte [ctrl1.status], 1		; still indeterminate ?
+	jne i2F.enter_c_handler			; no -->
+	lframe 0
+	lpar word, nearip			; kernel retn frame
+	lpar word, intflags			; iret frame
+	lpar dword, intcsip			; iret frame
+	lpar word, ds				; on stack
+	lenter
+	push es
+	push di
+	push si
+	push cx
+	les di, [bp + ?intcsip]
+%ifn _CMPSTR
+	cmp di, -16				; insure scasw is ok
+	ja .ret
+%endif
+	mov si, seq_call_i2F
+	mov cx, seq_call_i2F.length
+	sub di, cx
+	repe cmpsb
+	jne .ret
+	push di
+%ifn _CMPSTR
+	mov al, __TEST_IMM16
+	scasb
+	jne @F
+	mov ax, "US"				; Uninstallable SHARE signature
+	scasw
+@@:
+%else
+	mov si, seq_signature
+	mov cl, seq_signature.length
+	repe cmpsb
+%endif
+	pop di
+	jne .check_needed
+	mov byte [ctrl1.status], 3		; not needed
+	jmp .ret
+
+.check_needed:
+	mov al, 0C3h
+	scasb					; expected ?
+	jne .ret
+	mov di, word [bp + ?nearip]
+	cmp di, -16				; insure mov ax is fine
+	ja .ret
+	mov si, seq_setting
+	mov cl, seq_setting.length
+	mov ax, [es:di + seq_setting.offset - seq_setting]
+						; get their offset, if any
+	mov word [si + seq_setting.offset - seq_setting], ax
+						; plug it into the sequence
+	repe cmpsb				; need patch ?
+	jne .ret				; don't know -->
+	mov es, cx				; = 0
+	mov si, word [bp + ?ds]			; verify ds
+	cmp si, word [es:31h * 4 + 2]		; i31 vector has segment = DOS DS
+	jne .ret
+	mov word [ctrl1.offset], ax		; remember offset
+	inc byte [ctrl1.status]			; = 2, patch needed
+.ret:
+	pop cx
+	pop si
+	pop di
+	pop es
+	lleave
+	mov ax, 1000h
+	jmp i2F.enter_c_handler
+
+
+seq_call_i2F:
+.:	mov ax, 1000h
+	int 2Fh
+.length: equ $ - .
+%if _CMPSTR
+seq_signature:
+.:	test ax, "US"				; Uninstallable SHARE signature
+.length: equ $ - .
+%endif
+seq_setting:
+.:	cmp al, 0FFh
+	jnz .not
+	mov byte [0], 1
+.offset: equ $ - 3
+.not:
+.length: equ $ - .
