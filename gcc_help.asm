@@ -95,7 +95,16 @@ INP:	al = 07h..0Fh
 OUT:	al = 00h
 
 TSR - Reserved for TSR
-INP:	al = 10h..FFh
+INP:	al = 10h..20h
+OUT:	al = 00h
+
+SHARE - Get patch status (ctrl1)
+INP:	al = 21h
+OUT:	al = size of returned data (not 0 if supported, 3 for now)
+	dx:bx -> patch offset word, then patch status byte
+
+TSR - Reserved for TSR
+INP:	al = 22h..FFh
 OUT:	al = 00h
 
 %endif
@@ -116,6 +125,12 @@ amisintr:
 	dw i2F
 .i2D:	db 2Dh
 	dw i2D
+
+
+ctrl1:
+.offset:	dw -1
+.status:	db 1
+.end:
 
 
 i2D.uninstall:
@@ -143,6 +158,8 @@ amisnum equ $-1				; AMIS multiplex number (data for cmp opcode)
 	je .uninstall			; uninstallation -->
 	cmp al, 04h
 	je .determineinterrupts		; determine hooked interrupts -->
+	cmp al, 21h
+	je .ctrl1
 				; all other functions are reserved or not supported by TSR
 .nop:
 	mov al, 0			; show not implemented
@@ -159,6 +176,11 @@ amisnum equ $-1				; AMIS multiplex number (data for cmp opcode)
 
 .determineinterrupts:			; al = 04h, always returns list
 	mov bx, amisintr		; dx:bx -> hooked interrupts list
+	jmp short .iret_dx_cs
+
+.ctrl1:
+	mov al, ctrl1.end - ctrl1
+	mov bx, ctrl1
 	jmp short .iret_dx_cs
 
 
