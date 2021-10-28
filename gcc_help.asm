@@ -164,24 +164,133 @@ amisnum equ $-1				; AMIS multiplex number (data for cmp opcode)
 
 section .text.startup
 
-global uninstall
+global asm_find_resident
+asm_find_resident:
+	push ds
+	push es
+	push si
+	push di
+
+findinstalled:
+	mov ax, 352Dh
+	int 21h
+	inc bx
+	jz .error
+	mov bx, es
+	test bx, bx
+	jz .error
+
+	push cs
+	pop ds
+	mov ah, 0FFh		; start with multiplex number 0FFh
+.loop:
+	call .check
+	jnc .end
+	sub ah, 1		; search is backward (to find latest installed first), from 0FFh to 00h including
+	jnc .loop		; try next if we didn't check all yet -->
+
+		; If not found
+.error:
+	mov ax, -1		; return code: error, not found
+	jmp .ret
+
+
+		; INP:	ah = multiplex number to check
+		;	ds => not yet installed resident segment
+		; OUT:	CY if multiplex number unused or no signature match,
+		;	 ah, ds unmodified
+		;	NC if match found,
+		;	 ah = multiplex number (unmodified)
+		;	 ds => found already resident segment
+		; CHG:	al, si, di, cx, dx
+.check:
+	mov al, 00h		; AMIS installation check
+	int 2Dh			; AMIS (or "DOS reserved" = iret if no AMIS present)
+	cmp al, 0FFh
+	jne .notfound
+	mov si, amissig		; ds:si -> our AMIS name strings
+	mov es, dx		; es:di -> name strings of AMIS multiplexer that just answered
+	mov cx, 8		; Ignore description, only compare vendor and program name
+	repe cmpsw
+	jne .notfound		; No match, try next
+	db __TEST_IMM8		; (skip stc, NC)
+
+.notfound:
+	stc
+	retn
+
+.end:
+	xchg al, ah
+	mov ah, 0		; return code: multiplex number <= 255
+.ret:
+	pop di
+	pop si
+	pop es
+	pop ds
+	retn
+
+
+	struc status_struct
+ssPatchOffset:	resw 1
+ssPatchStatus:	resb 1
+	endstruc
+
+
+global asm_get_status
+asm_get_status:
+	lframe near
+	lpar word, struct
+	lpar word, mpx
+	lpar_return
+	lenter
+	push ds
+	push es
+	push si
+	push di
+
+	mov di, word [bp + ?struct]
+	mov byte [di + ssPatchStatus], 0
+
+	mov ax, word [bp + ?mpx]
+	xchg al, ah		; ah = multiplex number
+	test al, al		; is it valid ?
+	jnz .ret		; no -->
+
+	mov al, 21h
+	int 2Dh
+	cmp al, 3
+	jb .ret
+	push ds
+	pop es			; es:di -> struc passed in
+	mov ds, dx
+	mov si, bx		; ds:si -> ctrl1 of TSR
+	movsw
+	movsb			; copy over patch offset and status
+
+.ret:
+	pop di
+	pop si
+	pop es
+	pop ds
+	lleave
+	lret
+
+
+global asm_uninstall
+asm_uninstall:
+
 uninstall:
 	push ds
 	push es
 	push si
 	push di
-	push bx
-	push cx
-	push dx
-	lframe none
+	lframe 2 + 8
+	lpar word, mpx
 	lenter
 	jmp @F
 
 .return:
-	lleave , forcerestoresp
-	pop dx
-	pop cx
-	pop bx
+	lleave code, forcerestoresp
 	pop di
 	pop si
 	pop es
@@ -230,46 +339,17 @@ findinstalleddebugger:
 .end:
 	mov word [debuggerfunction], ax
 
-findinstalled:
-	push cs
-	pop ds
-	mov ah, 0FFh		; start with multiplex number 0FFh
-.loop:
-	call .check
-	jnc .end
-	sub ah, 1		; search is backward (to find latest installed first), from 0FFh to 00h including
-	jnc .loop		; try next if we didn't check all yet -->
+uninstall_get_mpx:
+	mov ax, word [bp + ?mpx]
+	xchg al, ah		; ah = multiplex number
+	test al, al		; is it valid ?
+	jz @F			; yes -->
 
 		; If not found
 	mov ax, 1		; return code: error, 1 (none resident)
 	jmp uninstall.return
 
-
-		; INP:	ah = multiplex number to check
-		;	ds => not yet installed resident segment
-		; OUT:	CY if multiplex number unused or no signature match,
-		;	 ah, ds unmodified
-		;	NC if match found,
-		;	 ah = multiplex number (unmodified)
-		;	 ds => found already resident segment
-.check:
-	mov al, 00h		; AMIS installation check
-	int 2Dh			; AMIS (or "DOS reserved" = iret if no AMIS present)
-	cmp al, 0FFh
-	jne .notfound
-	mov si, amissig		; ds:si -> our AMIS name strings
-	mov es, dx		; es:di -> name strings of AMIS multiplexer that just answered
-	mov cx, 8		; Ignore description, only compare vendor and program name
-	repe cmpsw
-	jne .notfound		; No match, try next
-	mov ds, dx		; set ds to our resident copy's segment
-	db __TEST_IMM8		; (skip stc, NC)
-
-.notfound:
-	stc
-	retn
-
-.end:
+@@:
 
 uninstall_found_installed:	; ah = AMIS multiplex number of resident copy
 	mov al, 02h
@@ -398,6 +478,8 @@ unhookerror:
 unhookerrorcritical:
 	mov ax, 4		; return code: error, 4 (unhook failed)
 	jmp @B
+
+	lleave ctx
 
 
 		; INP:	ds:bx -> AMIS interrupt list
