@@ -734,6 +734,7 @@ static char msg_patchstatus_indeterminate[] NON_RES_DATA = "indeterminate.\r\n";
 static char msg_patchstatus_needed[] NON_RES_DATA = "needed.\r\n";
 static char msg_patchstatus_notneeded[] NON_RES_DATA = "not needed.\r\n";
 static char msg_patchstatus_unknown[] NON_RES_DATA = "unknown..\r\n";
+static char msg_patched[] NON_RES_DATA = "Patched the share_installed byte of old FreeDOS kernel to zero.\r\n";
 
 static void usage(void) {
 	PRINT(ERR, msg_usage1);
@@ -902,11 +903,22 @@ int main(int argc, char **argv) {
 	}
 
 	if (uninstallrequested) {
+		status_struct s;
+		uint16_t rc;
 		uint16_t mpx = asm_find_resident();
-		uint16_t rc = asm_uninstall(mpx);
+		asm_get_status(mpx, &s);
+		rc = asm_uninstall(mpx);
 		PRINT(ERR, progname);
 		if (rc == 0) {
 			PRINT(ERR, msg_removed);
+			if (2 == s.patchstatus) {
+				uint8_t far * share_installed
+				  = MK_FP(FP_SEG(getvect(0x31)), s.patchoffset);
+				if (*share_installed) {
+					*share_installed = 0;
+					PRINT(ERR, msg_patched);
+				}
+			}
 			return 0;
 		}
 		PRINT(ERR, msg_cannotremove);
