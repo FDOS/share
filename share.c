@@ -709,11 +709,14 @@ unsigned short init_tables(void) {
 
 static char msg_usage1[] NON_RES_DATA = "Installs file-sharing and locking "
 			"capabilities on your hard disk.\r\n\r\n";
-static char msg_usage2[] NON_RES_DATA = " [/F:space] [/L:locks]\r\n\r\n"
+static char msg_usage2[] NON_RES_DATA = " [/F:space] [/L:locks] [/U] [/S]\r\n\r\n"
 		 "  /F:space   Allocates file space (in bytes) "
 			"for file-sharing information.\r\n"
 		 "  /L:locks   Sets the number of files that can "
-			"be locked at one time.\r\n";
+			"be locked at one time.\r\n"
+		 "  /U         Uninstall a resident instance.\r\n"
+		 "  /S         Show status (only patch status yet).\r\n"
+		 ;
 static char msg_badparams[] NON_RES_DATA = ": parameter out of range!\r\n";
 static char msg_alreadyinstalled[] NON_RES_DATA = " is already installed!\r\n";
 static char msg_outofmemory[] NON_RES_DATA = ": out of memory!\r\n";
