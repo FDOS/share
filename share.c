@@ -709,13 +709,14 @@ unsigned short init_tables(void) {
 
 static char msg_usage1[] NON_RES_DATA = "Installs file-sharing and locking "
 			"capabilities on your hard disk.\r\n\r\n";
-static char msg_usage2[] NON_RES_DATA = " [/F:space] [/L:locks] [/U] [/S]\r\n\r\n"
+static char msg_usage2[] NON_RES_DATA = " [/F:space] [/L:locks] [/U] [/S] [/O]\r\n\r\n"
 		 "  /F:space   Allocates file space (in bytes) "
 			"for file-sharing information.\r\n"
 		 "  /L:locks   Sets the number of files that can "
 			"be locked at one time.\r\n"
 		 "  /U         Uninstall a resident instance.\r\n"
 		 "  /S         Show status (only patch status yet).\r\n"
+		 "  /O         Only operate if already resident, do not install.\r\n"
 		 ;
 static char msg_badparams[] NON_RES_DATA = ": parameter out of range!\r\n";
 static char msg_alreadyinstalled[] NON_RES_DATA = " is already installed!\r\n";
@@ -738,6 +739,7 @@ static char msg_patchstatus_needed[] NON_RES_DATA = "needed.\r\n";
 static char msg_patchstatus_notneeded[] NON_RES_DATA = "not needed.\r\n";
 static char msg_patchstatus_unknown[] NON_RES_DATA = "unknown..\r\n";
 static char msg_patched[] NON_RES_DATA = "Patched the share_installed byte of old FreeDOS kernel to zero.\r\n";
+static char msg_prefixed_notresident[] NON_RES_DATA = ": Program is not resident!\r\n";
 
 static void usage(void) {
 	PRINT(ERR, msg_usage1);
@@ -813,7 +815,8 @@ int displaystatus(uint16_t mpx) {
 int main(int argc, char **argv) {
 	unsigned short far *usfptr;
 	unsigned short top_of_tsr;
-	int installed = 0, uninstallrequested = 0, statusrequested = 0;
+	int installed = 0, uninstallrequested = 0, statusrequested = 0,
+		onlyoptions = 0;
 	int i;
 
 		/* Extract program name from argv[0] into progname. */
@@ -869,6 +872,10 @@ int main(int argc, char **argv) {
 		case 's':
 		case 'S':
 			statusrequested = 1;
+			break;
+		case 'o':
+		case 'O':
+			onlyoptions = 1;
 			break;
 		case 'f':
 		case 'F':
@@ -954,6 +961,12 @@ int main(int argc, char **argv) {
 			(void)displaystatus(0xFFFF);
 		}
 		return 1;
+	}
+
+	if (onlyoptions) {
+		PRINT(ERR, progname);
+		PRINT(ERR, msg_prefixed_notresident);
+		return 11;
 	}
 
 	top_of_tsr = init_tables();
