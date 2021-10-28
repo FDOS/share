@@ -726,7 +726,7 @@ static char msg_usage2[] NON_RES_DATA = " [/F:space] [/L:locks] [/U] [/S] [/O]\r
 		 "  /L:locks   Sets the number of files that can "
 			"be locked at one time.\r\n"
 		 "  /U         Uninstall a resident instance.\r\n"
-		 "  /S         Show status (only patch status yet).\r\n"
+		 "  /S         Show patch status and table sizes.\r\n"
 		 "  /O         Only operate if already resident, do not install.\r\n"
 		 ;
 static char msg_badparams[] NON_RES_DATA = ": parameter out of range!\r\n";
