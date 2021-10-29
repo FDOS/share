@@ -156,11 +156,11 @@ typedef struct {
 		/* ------------- GLOBALS ------------- */
 static char progname[9] NON_RES_BSS;
 static unsigned int file_table_size_bytes NON_RES_DATA = 2048;
-unsigned int file_table_size = 0;	/* # of file_t we can have */
-unsigned int file_table_free = 0;
+extern uint16_t file_table_size;	/* # of file_t we can have */
+extern uint16_t file_table_free;
 static file_t *file_table = NULL;
-unsigned int lock_table_size = 20;	/* # of lock_t we can have */
-unsigned int lock_table_free = 20;
+extern uint16_t lock_table_size;	/* # of lock_t we can have */
+extern uint16_t lock_table_free;
 static lock_t *lock_table = NULL;
 
 
