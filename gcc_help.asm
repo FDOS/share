@@ -517,6 +517,8 @@ clear_sft_shroff:
 ;  and the structure at https://github.com/FDOS/kernel/blob/cedcaee5adbc2d0d4d08c3572aae8decf50d4bb4/hdr/sft.h#L79
 ; Absent SHARE the record number (word at 33h) is initialised as -1.
 ;  So we overwrite the record number with this for every file.
+;  (Redirectors might use the SHARE record number field to their
+;  own purposes so don't modify their entries.)
 
 	mov ah, 52h
 	int 21h
@@ -530,6 +532,9 @@ clear_sft_shroff:
 .entryloop:
 	cmp word [es:bx + di], 0	; referenced ?
 	je .entrynext			; no -->
+	testopt [es:bx + di + 5], 8080h, 1
+					; redirector or character device ?
+	jnz .entrynext			; yes, skip -->
 	or word [es:bx + di + 33h], -1	; reset sharing record number
 .entrynext:
 	add di, dx			; es:bx + di -> next entry, if any
