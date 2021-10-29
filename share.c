@@ -752,6 +752,10 @@ static char msg_patchstatus_notneeded[] NON_RES_DATA = "not needed.\r\n";
 static char msg_patchstatus_unknown[] NON_RES_DATA = "unknown.\r\n";
 static char msg_patched[] NON_RES_DATA = "Patched the share_installed byte of old FreeDOS kernel to zero.\r\n";
 static char msg_prefixed_notresident[] NON_RES_DATA = ": Program is not resident!\r\n";
+static char msg_filetable[] NON_RES_DATA = "File table: ";
+static char msg_free[] NON_RES_DATA = " free / ";
+static char msg_total_locktable[] NON_RES_DATA = " total, lock table: ";
+static char msg_total_eol[] NON_RES_DATA = " total\r\n";
 
 static void usage(void) {
 	PRINT(ERR, msg_usage1);
@@ -837,16 +841,15 @@ int displaystatus(uint16_t mpx) {
 		PRINT(OUT, msg_patchstatus_unknown);
 		break;
 	}
-	PRINT(OUT, "File table: ");
+	PRINT(OUT, msg_filetable);
 	displaynumber(OUT, s.filefree);
-	PRINT(OUT, " free / ");
+	PRINT(OUT, msg_free);
 	displaynumber(OUT, s.filesize);
-	PRINT(OUT, " total, ");
-	PRINT(OUT, "lock table: ");
+	PRINT(OUT, msg_total_locktable);
 	displaynumber(OUT, s.lockfree);
-	PRINT(OUT, " free / ");
+	PRINT(OUT, msg_free);
 	displaynumber(OUT, s.locksize);
-	PRINT(OUT, " total\r\n");
+	PRINT(OUT, msg_total_eol);
 	return 0;
 }
 
