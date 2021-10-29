@@ -135,6 +135,19 @@ amisintr:
 	dw i2D
 
 
+global file_table_size
+global file_table_free
+global lock_table_size
+global lock_table_free
+
+	align 2, db 0
+ctrl2:
+file_table_size:	dw 0
+file_table_free:	dw 0
+lock_table_size:	dw 20
+lock_table_free:	dw 20
+ctrl2.end:
+
 ctrl1:
 .offset:	dw -1
 .status:	db 1
@@ -169,7 +182,7 @@ amisnum equ $-1				; AMIS multiplex number (data for cmp opcode)
 	cmp al, 21h
 	je .ctrl1
 	cmp al, 22h
-	je .getdata
+	je .ctrl2
 				; all other functions are reserved or not supported by TSR
 .nop:
 	mov al, 0			; show not implemented
@@ -193,18 +206,10 @@ amisnum equ $-1				; AMIS multiplex number (data for cmp opcode)
 	mov bx, ctrl1
 	jmp short .iret_dx_cs
 
-extern file_table_size
-extern file_table_free
-extern lock_table_size
-extern lock_table_free
-
-.getdata:
-	mov al, 0FFh
-	mov bx, word [cs:file_table_size]
-	mov cx, word [cs:file_table_free]
-	mov si, word [cs:lock_table_size]
-	mov di, word [cs:lock_table_free]
-	iret
+.ctrl2:
+	mov al, ctrl2.end - ctrl2
+	mov bx, ctrl2
+	jmp short .iret_dx_cs
 
 
 section .text.startup
@@ -324,9 +329,24 @@ asm_get_status:
 @@:
 
 	mov al, 22h
-	xchg dx, di
+	push di
 	int 2Dh
+	cmp al, 8
+	jne @F
+	pop di
+	push ds
+	pop es
+	add di, ssFileSize
+	mov ds, dx
+	mov si, bx
+	mov cx, 4
+	rep movsw
+	jmp @FF
+
+@@:
+	pop dx
 	xchg dx, di
+
 	cmp al, 0FFh
 	jne @F
 	mov word [di + ssFileSize], bx
