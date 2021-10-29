@@ -749,7 +749,7 @@ static char msg_patchstatus_notsupported[] NON_RES_DATA = "not supported by TSR.
 static char msg_patchstatus_indeterminate[] NON_RES_DATA = "indeterminate.\r\n";
 static char msg_patchstatus_needed[] NON_RES_DATA = "needed.\r\n";
 static char msg_patchstatus_notneeded[] NON_RES_DATA = "not needed.\r\n";
-static char msg_patchstatus_unknown[] NON_RES_DATA = "unknown..\r\n";
+static char msg_patchstatus_unknown[] NON_RES_DATA = "unknown.\r\n";
 static char msg_patched[] NON_RES_DATA = "Patched the share_installed byte of old FreeDOS kernel to zero.\r\n";
 static char msg_prefixed_notresident[] NON_RES_DATA = ": Program is not resident!\r\n";
 
