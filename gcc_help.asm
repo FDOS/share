@@ -61,7 +61,7 @@ AMIS - Installation check
 INP:	al = 00h
 OUT:	al = 0FFh
 	cx = Private version number (currently 0100h)
-	dx:di-> signature: "ecm     ","SHARE   "
+	dx:di-> signature: "DOS-C   ","SHARE   "
 
 AMIS - Get private entry point - NOP: no private entry point
 INP:	al = 01h
@@ -120,7 +120,7 @@ OUT:	al = 00h
 
 	align 2, db 0
 amissig:
-.ven:	fill 8,32,db "ecm"		; vendor
+.ven:	fill 8,32,db "DOS-C"		; vendor
 .prod:	fill 8,32,db "SHARE"		; product
 .desc:	asciz "FreeDOS file-sharing and locking capabilities"	; description
 %if $ - .desc > 64
