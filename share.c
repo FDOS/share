@@ -16,6 +16,7 @@
 #include <stdlib.h>	/* _psp, NULL, malloc, free, atol */
 #define NON_RES_TEXT
 #define NON_RES_DATA
+#define NON_RES_RODATA
 #define NON_RES_BSS
 
 #elif defined(__GNUC__)
@@ -23,6 +24,7 @@
 #include <unistd.h>
 #define NON_RES_TEXT __attribute__((section(".text.startup")))
 #define NON_RES_DATA __attribute__((section(".data.startup")))
+#define NON_RES_RODATA __attribute__((section(".rodata.startup")))
 #define NON_RES_BSS __attribute__((section(".bss.startup")))
 #define far __far
 #define getvect(x) _dos_getvect(x)
@@ -171,8 +173,8 @@ int main(int argc, char **argv) NON_RES_TEXT;
 /* PRINT added by Eric */
 #define ERR 2	/* handle of stderr */
 #define OUT 1	/* handle of stdout */
-static void PRINT(int handle, char * text) NON_RES_TEXT;
-static void PRINT(int handle, char * text) {
+static void PRINT(int handle, const char * text) NON_RES_TEXT;
+static void PRINT(int handle, const char * text) {
 	(void)write (handle, text, strlen(text));
 	/* return value is -1 error or N bytes_written. Ignored. */
 }
@@ -718,9 +720,9 @@ unsigned short init_tables(void) {
 	return paras;
 }
 
-static char msg_usage1[] NON_RES_DATA = "Installs file-sharing and locking "
+static const char msg_usage1[] NON_RES_RODATA = "Installs file-sharing and locking "
 			"capabilities on your hard disk.\r\n\r\n";
-static char msg_usage2[] NON_RES_DATA = " [/F:space] [/L:locks] [/U] [/S] [/O]\r\n\r\n"
+static const char msg_usage2[] NON_RES_RODATA = " [/F:space] [/L:locks] [/U] [/S] [/O]\r\n\r\n"
 		 "  /F:space   Allocates file space (in bytes) "
 			"for file-sharing information.\r\n"
 		 "  /L:locks   Sets the number of files that can "
@@ -729,33 +731,33 @@ static char msg_usage2[] NON_RES_DATA = " [/F:space] [/L:locks] [/U] [/S] [/O]\r
 		 "  /S         Show patch status and table sizes.\r\n"
 		 "  /O         Only operate if already resident, do not install.\r\n"
 		 ;
-static char msg_badparams[] NON_RES_DATA = ": parameter out of range!\r\n";
-static char msg_alreadyinstalled[] NON_RES_DATA = " is already installed!\r\n";
-static char msg_isinstalled[] NON_RES_DATA = " is installed resident.\r\n";
-static char msg_outofmemory[] NON_RES_DATA = ": out of memory!\r\n";
-static char msg_nofreeamisnum[] NON_RES_DATA = ": no free AMIS multiplex number!\r\n";
-static char msg_invalidhandler[] NON_RES_DATA = ": invalid interrupt 2Fh or 2Dh handler!\r\n";
-static char msg_installed[] NON_RES_DATA = " installed.\r\n";
-static char msg_removed[] NON_RES_DATA = " removed.\r\n";
-static char msg_cannotremove[] NON_RES_DATA = ": cannot remove, ";
-static char msg_notinstalled[] NON_RES_DATA = "not yet installed.\r\n";
-static char msg_somefailure[] NON_RES_DATA = "some failure.\r\n";
-static char msg_unhookerror[] NON_RES_DATA = "handlers hooked AMIS-incompatible.\r\n";
-static char msg_unhookerrorcritical[] NON_RES_DATA = "internal unhook error.\r\n";
-static char msg_unknownerror[] NON_RES_DATA = "unknown error.\r\n";
-static char msg_notresident[] NON_RES_DATA = "Program is not resident!\r\n";
-static char msg_patchstatus[] NON_RES_DATA = "Patch status: ";
-static char msg_patchstatus_notsupported[] NON_RES_DATA = "not supported by TSR.\r\n";
-static char msg_patchstatus_indeterminate[] NON_RES_DATA = "indeterminate.\r\n";
-static char msg_patchstatus_needed[] NON_RES_DATA = "needed.\r\n";
-static char msg_patchstatus_notneeded[] NON_RES_DATA = "not needed.\r\n";
-static char msg_patchstatus_unknown[] NON_RES_DATA = "unknown.\r\n";
-static char msg_patched[] NON_RES_DATA = "Patched the share_installed byte of old FreeDOS kernel to zero.\r\n";
-static char msg_prefixed_notresident[] NON_RES_DATA = ": Program is not resident!\r\n";
-static char msg_filetable[] NON_RES_DATA = "File table: ";
-static char msg_free[] NON_RES_DATA = " free / ";
-static char msg_total_locktable[] NON_RES_DATA = " total, lock table: ";
-static char msg_total_eol[] NON_RES_DATA = " total\r\n";
+static const char msg_badparams[] NON_RES_RODATA = ": parameter out of range!\r\n";
+static const char msg_alreadyinstalled[] NON_RES_RODATA = " is already installed!\r\n";
+static const char msg_isinstalled[] NON_RES_RODATA = " is installed resident.\r\n";
+static const char msg_outofmemory[] NON_RES_RODATA = ": out of memory!\r\n";
+static const char msg_nofreeamisnum[] NON_RES_RODATA = ": no free AMIS multiplex number!\r\n";
+static const char msg_invalidhandler[] NON_RES_RODATA = ": invalid interrupt 2Fh or 2Dh handler!\r\n";
+static const char msg_installed[] NON_RES_RODATA = " installed.\r\n";
+static const char msg_removed[] NON_RES_RODATA = " removed.\r\n";
+static const char msg_cannotremove[] NON_RES_RODATA = ": cannot remove, ";
+static const char msg_notinstalled[] NON_RES_RODATA = "not yet installed.\r\n";
+static const char msg_somefailure[] NON_RES_RODATA = "some failure.\r\n";
+static const char msg_unhookerror[] NON_RES_RODATA = "handlers hooked AMIS-incompatible.\r\n";
+static const char msg_unhookerrorcritical[] NON_RES_RODATA = "internal unhook error.\r\n";
+static const char msg_unknownerror[] NON_RES_RODATA = "unknown error.\r\n";
+static const char msg_notresident[] NON_RES_RODATA = "Program is not resident!\r\n";
+static const char msg_patchstatus[] NON_RES_RODATA = "Patch status: ";
+static const char msg_patchstatus_notsupported[] NON_RES_RODATA = "not supported by TSR.\r\n";
+static const char msg_patchstatus_indeterminate[] NON_RES_RODATA = "indeterminate.\r\n";
+static const char msg_patchstatus_needed[] NON_RES_RODATA = "needed.\r\n";
+static const char msg_patchstatus_notneeded[] NON_RES_RODATA = "not needed.\r\n";
+static const char msg_patchstatus_unknown[] NON_RES_RODATA = "unknown.\r\n";
+static const char msg_patched[] NON_RES_RODATA = "Patched the share_installed byte of old FreeDOS kernel to zero.\r\n";
+static const char msg_prefixed_notresident[] NON_RES_RODATA = ": Program is not resident!\r\n";
+static const char msg_filetable[] NON_RES_RODATA = "File table: ";
+static const char msg_free[] NON_RES_RODATA = " free / ";
+static const char msg_total_locktable[] NON_RES_RODATA = " total, lock table: ";
+static const char msg_total_eol[] NON_RES_RODATA = " total\r\n";
 
 static void usage(void) {
 	PRINT(ERR, msg_usage1);
