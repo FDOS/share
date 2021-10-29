@@ -513,6 +513,11 @@ clear_sft_shroff:
 	mov dx, di			; take computed size
 .gotsize:
 
+; Refer to https://github.com/FDOS/kernel/blob/cedcaee5adbc2d0d4d08c3572aae8decf50d4bb4/kernel/dosfns.c#L538
+;  and the structure at https://github.com/FDOS/kernel/blob/cedcaee5adbc2d0d4d08c3572aae8decf50d4bb4/hdr/sft.h#L79
+; Absent SHARE the record number (word at 33h) is initialised as -1.
+;  So we overwrite the record number with this for every file.
+
 	mov ah, 52h
 	int 21h
 	les bx, [es:bx + 4]		; -> first SFT table
