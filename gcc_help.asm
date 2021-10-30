@@ -339,8 +339,10 @@ asm_get_status:
 	add di, ssFileSize
 	mov ds, dx
 	mov si, bx
-	mov cx, 4
-	rep movsw
+	movsw
+	movsw
+	movsw
+	movsw
 	jmp @FF
 
 @@:
