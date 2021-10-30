@@ -338,7 +338,6 @@ asm_get_status:
 	int 2Dh
 	cmp al, 8
 	jne @F
-	pop di
 	push ds
 	pop es
 	add di, ssFileSize
@@ -348,6 +347,7 @@ asm_get_status:
 	movsw
 	movsw
 	movsw
+	pop di
 	jmp @FF
 
 @@:
