@@ -105,11 +105,14 @@ OUT:	al = size of returned data (not 0 if supported, 3 for now)
 
 SHARE - Get data on free and total structures
 INP:	al = 22h
-OUT:	al = FFh if supported
-	bx = file table total size (amount entries)
-	cx = file table free amount entries
-	si = lock table total size (amount entries)
-	di = lock table free amount entries
+OUT:	al = FFh if supported without table,
+	 bx = file table total size (amount entries)
+	 cx = file table free amount entries
+	 si = lock table total size (amount entries)
+	 di = lock table free amount entries
+	al = 8 if supported with table,
+	 dx:bx -> table of 4 words,
+	 file total, file free, lock total, lock free
 
 TSR - Reserved for TSR
 INP:	al = 23h..FFh
@@ -135,6 +138,8 @@ amisintr:
 	dw i2D
 
 
+	; These variables are used as globals
+	;  by the C code. Each is an uint16_t.
 global file_table_size
 global file_table_free
 global lock_table_size
