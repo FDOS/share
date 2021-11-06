@@ -5,7 +5,7 @@ share.obj: share.c
 	$(CC) $(COPT)
 
 gcc_help.obj: gcc_help.asm
-	nasm -f elf -I ../lmacros/ $< -o $@
+	nasm -f elf -I ../lmacros/ -I lmacros/ $< -o $@
 
 clean:
 	$(RM) *.obj
