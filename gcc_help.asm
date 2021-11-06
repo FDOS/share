@@ -51,7 +51,7 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 %endif
 
 %include "lmacros3.mac"
-%include "AMIS.MAC"
+%include "amis.mac"
 
 %if 0
 
