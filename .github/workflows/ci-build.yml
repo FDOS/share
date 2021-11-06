@@ -1,0 +1,33 @@
+name: Build
+on:
+  pull_request:
+    types:
+      - opened
+      - edited
+      - ready_for_review
+      - reopened
+      - synchronize
+  push:
+
+jobs:
+  build:
+    if: contains(github.event.head_commit.message, '[skip ci]') == false
+
+    runs-on: ubuntu-20.04
+
+    steps:
+    - name: Checkout repository and submodules
+      uses: actions/checkout@v2
+      with:
+        submodules: recursive
+
+    - name: Package install
+      run: |
+        sudo add-apt-repository ppa:tkchia/build-ia16
+        sudo apt update
+        sudo apt install gcc-ia16-elf libi86-ia16-elf nasm upx
+
+    - name: Build
+      run: |
+        make clobber
+        env COMPILER=gcc ./build.sh
