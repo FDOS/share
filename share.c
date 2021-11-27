@@ -18,6 +18,8 @@
 #define NON_RES_DATA
 #define NON_RES_RODATA
 #define NON_RES_BSS
+typedef unsigned char uint8_t;
+typedef unsigned short uint16_t;
 
 #elif defined(__GNUC__)
 #include <libi86/stdlib.h>
@@ -156,11 +158,16 @@ typedef struct {
 		/* ------------- GLOBALS ------------- */
 static char progname[9] NON_RES_BSS;
 static unsigned int file_table_size_bytes NON_RES_DATA = 2048;
+#if defined(__GNUC__)
 extern uint16_t file_table_size;	/* # of file_t we can have */
 extern uint16_t file_table_free;
-static file_t *file_table = NULL;
 extern uint16_t lock_table_size;	/* # of lock_t we can have */
 extern uint16_t lock_table_free;
+#else
+uint16_t file_table_size = 0;		/* # of file_t we can have */
+uint16_t lock_table_size = 20;		/* # of lock_t we can have */
+#endif
+static file_t *file_table = NULL;
 static lock_t *lock_table = NULL;
 
 
@@ -363,14 +370,18 @@ static void remove_all_locks(int fileno) {
 		lptr = &lock_table[i];
 		if (lptr->used && lptr->fileno == fileno) {
 			lptr->used = 0;
+#if defined(__GNUC__)
 			++ lock_table_free;
+#endif
 		}
 	}
 }
 
 static void free_file_table_entry(int fileno) {
 	file_table[fileno].filename[0] = '\0';
+#if defined(__GNUC__)
 	++ file_table_free;
+#endif
 }
 
 /* DOS 7 does not have read-only restrictions, MED 08/2004 */
@@ -513,7 +524,9 @@ static int open_check
 	for (i = 0; i < sizeof(fptr->filename); i++) {
 		if ((fptr->filename[i] = filename[i]) == '\0') break;
 	}
+#if defined(__GNUC__)
 	-- file_table_free;
+#endif
 	fptr->psp = psp;
 	fptr->openmode = (unsigned char)openmode;
 	fptr->sharemode = (unsigned char)sharemode;
@@ -620,7 +633,9 @@ static int lock_unlock
 				&& (lptr->start == ofs)
 				&& (lptr->end == endofs)   ) {
 				lptr->used = 0;
+#if defined(__GNUC__)
 				++ lock_table_free;
+#endif
 				return 0;
 			}
 		}
@@ -639,7 +654,9 @@ static int lock_unlock
 				lptr->end = ofs+(unsigned long)len;
 				lptr->fileno = fileno;
 				lptr->psp = psp;
+#if defined(__GNUC__)
 				-- lock_table_free;
+#endif
 				return 0;
 			}
 		}
@@ -722,22 +739,32 @@ unsigned short init_tables(void) {
 
 static const char msg_usage1[] NON_RES_RODATA = "Installs file-sharing and locking "
 			"capabilities on your hard disk.\r\n\r\n";
-static const char msg_usage2[] NON_RES_RODATA = " [/F:space] [/L:locks] [/U] [/S] [/O]\r\n\r\n"
+static const char msg_usage2[] NON_RES_RODATA = " [/F:space] [/L:locks]"
+#if defined(__GNUC__)
+		 " [/U] [/S] [/O]"
+#endif
+		 "\r\n\r\n"
 		 "  /F:space   Allocates file space (in bytes) "
 			"for file-sharing information.\r\n"
 		 "  /L:locks   Sets the number of files that can "
 			"be locked at one time.\r\n"
+#if defined(__GNUC__)
 		 "  /U         Uninstall a resident instance.\r\n"
 		 "  /S         Show patch status and table sizes.\r\n"
 		 "  /O         Only operate if already resident, do not install.\r\n"
+#endif
 		 ;
+
 static const char msg_badparams[] NON_RES_RODATA = ": parameter out of range!\r\n";
 static const char msg_alreadyinstalled[] NON_RES_RODATA = " is already installed!\r\n";
-static const char msg_isinstalled[] NON_RES_RODATA = " is installed resident.\r\n";
 static const char msg_outofmemory[] NON_RES_RODATA = ": out of memory!\r\n";
-static const char msg_nofreeamisnum[] NON_RES_RODATA = ": no free AMIS multiplex number!\r\n";
-static const char msg_invalidhandler[] NON_RES_RODATA = ": invalid interrupt 2Fh or 2Dh handler!\r\n";
+static const char msg_invalidhandler2f[] NON_RES_RODATA = ": invalid interrupt 2Fh handler!\r\n";
 static const char msg_installed[] NON_RES_RODATA = " installed.\r\n";
+
+#if defined(__GNUC__)
+static const char msg_isinstalled[] NON_RES_RODATA = " is installed resident.\r\n";
+static const char msg_nofreeamisnum[] NON_RES_RODATA = ": no free AMIS multiplex number!\r\n";
+static const char msg_invalidhandler2d[] NON_RES_RODATA = ": invalid interrupt 2Dh handler!\r\n";
 static const char msg_removed[] NON_RES_RODATA = " removed.\r\n";
 static const char msg_cannotremove[] NON_RES_RODATA = ": cannot remove, ";
 static const char msg_notinstalled[] NON_RES_RODATA = "not yet installed.\r\n";
@@ -758,6 +785,7 @@ static const char msg_filetable[] NON_RES_RODATA = "File table: ";
 static const char msg_free[] NON_RES_RODATA = " free / ";
 static const char msg_total_locktable[] NON_RES_RODATA = " total, lock table: ";
 static const char msg_total_eol[] NON_RES_RODATA = " total\r\n";
+#endif
 
 static void usage(void) {
 	PRINT(ERR, msg_usage1);
@@ -788,8 +816,6 @@ static long minimal_atol(const char *s) {
 
 	return val;
 }
-#endif
-
 
 void displaynumber(int handle, uint16_t number) NON_RES_TEXT;
 void displaynumber(int handle, uint16_t number) {
@@ -854,14 +880,18 @@ int displaystatus(uint16_t mpx) {
 	PRINT(OUT, msg_total_eol);
 	return 0;
 }
+#endif
 
 		/* ------------- MAIN ------------- */
 int main(int argc, char **argv) {
 	unsigned short far *usfptr;
 	unsigned short top_of_tsr;
-	int installed = 0, uninstallrequested = 0, statusrequested = 0,
-		onlyoptions = 0;
+	int installed = 0;
+#if defined(__GNUC__)
+	int uninstallrequested = 0, statusrequested = 0, onlyoptions = 0;
+#endif
 	int i;
+	uint8_t ii;
 
 		/* Extract program name from argv[0] into progname. */
 	if (argv[0] != NULL) {
@@ -907,6 +937,7 @@ int main(int argc, char **argv) {
 		case '?':
 			usage();
 			return 3;
+#if defined(__GNUC__)
 		case 'u':
 		case 'U':
 		case 'r':
@@ -921,6 +952,7 @@ int main(int argc, char **argv) {
 		case 'O':
 			onlyoptions = 1;
 			break;
+#endif
 		case 'f':
 		case 'F':
 			arg++;
@@ -956,6 +988,7 @@ int main(int argc, char **argv) {
 		}
 	}
 
+#if defined(__GNUC__)
 	if (uninstallrequested) {
 		status_struct s;
 		uint16_t rc;
@@ -995,10 +1028,12 @@ int main(int argc, char **argv) {
 			return 10;
 		}
 	}
+#endif
 
 		/* Now try to install. */
 
 	if (installed) {
+#if defined(__GNUC__)
 		if (statusrequested || onlyoptions) {
 			PRINT(OUT, progname);
 			PRINT(OUT, msg_isinstalled);
@@ -1009,14 +1044,20 @@ int main(int argc, char **argv) {
 		if (statusrequested) {
 			(void)displaystatus(0xFFFF);
 		}
+#else
+		PRINT(ERR, progname);
+		PRINT(ERR, msg_alreadyinstalled);
+#endif
 		return 1;
 	}
 
+#if defined(__GNUC__)
 	if (onlyoptions) {
 		PRINT(ERR, progname);
 		PRINT(ERR, msg_prefixed_notresident);
 		return 11;
 	}
+#endif
 
 	top_of_tsr = init_tables();
 	if (top_of_tsr == 0) {
@@ -1024,18 +1065,22 @@ int main(int argc, char **argv) {
 		PRINT(ERR, msg_outofmemory);
 		return 2;
 	}
+
+	if (FP_SEG(getvect(MUX_INT_NO)) == 0
+		|| FP_OFF(getvect(MUX_INT_NO)) == 0xFFFF) {
+		PRINT(ERR, progname);
+		PRINT(ERR, msg_invalidhandler2f);
+		return 5;
+	}
+
 #if defined(__GNUC__)
 	top_of_tsr += 4; // Add 64 bytes for stack
 	top_of_stack = (top_of_tsr << 4);
-#endif
-
 
 	if (FP_SEG(getvect(0x2D)) == 0
-		|| FP_OFF(getvect(0x2D)) == 0xFFFF
-		|| FP_SEG(getvect(MUX_INT_NO)) == 0
-		|| FP_OFF(getvect(MUX_INT_NO)) == 0xFFFF) {
+		|| FP_OFF(getvect(0x2D)) == 0xFFFF) {
 		PRINT(ERR, progname);
-		PRINT(ERR, msg_invalidhandler);
+		PRINT(ERR, msg_invalidhandler2d);
 		return 5;
 	}
 
@@ -1068,6 +1113,7 @@ int main(int argc, char **argv) {
 	/* disable(); */
 	i2D_next = getvect(0x2D);
 	setvect(0x2D, i2D_handler);
+#endif
 	old_handler2f = getvect(MUX_INT_NO);
 	setvect(MUX_INT_NO,handler2f);
 	/* enable(); */
@@ -1075,9 +1121,11 @@ int main(int argc, char **argv) {
 		/* Let them know we're installed. */
 	PRINT(OUT, progname);
 	PRINT(OUT, msg_installed);
+#if defined(__GNUC__)
 	if (statusrequested) {
 		(void)displaystatus(amisnum);
 	}
+#endif
 
 		/* Any access to environment variables must */
 		/* be done prior to this point.  Here we    */
@@ -1096,7 +1144,7 @@ int main(int argc, char **argv) {
 		   int 21.31 by default. Like most TSRs we never
 		   use the resident's PSP for file operations again
 		   so better close all handles so as not to leak. */
-	for (uint8_t ii = 0; ii < 20; ++ii) {
+	for (ii = 0; ii < 20; ++ii) {
 		close(ii);	/* clean up file handles */
 	}
 
