@@ -777,7 +777,9 @@ static const char msg_notresident[] NON_RES_RODATA = "Program is not resident!\r
 static const char msg_patchstatus[] NON_RES_RODATA = "Patch status: ";
 static const char msg_patchstatus_notsupported[] NON_RES_RODATA = "not supported by TSR.\r\n";
 static const char msg_patchstatus_indeterminate[] NON_RES_RODATA = "indeterminate.\r\n";
-static const char msg_patchstatus_needed[] NON_RES_RODATA = "needed.\r\n";
+static const char msg_patchstatus_needed[] NON_RES_RODATA = "needed, flag at ";
+static const char msg_patchstatus_needed_2[] NON_RES_RODATA = "h:";
+static const char msg_patchstatus_needed_3[] NON_RES_RODATA = "h.\r\n";
 static const char msg_patchstatus_notneeded[] NON_RES_RODATA = "not needed.\r\n";
 static const char msg_patchstatus_unknown[] NON_RES_RODATA = "unknown.\r\n";
 static const char msg_patched[] NON_RES_RODATA = "Patched the share_installed byte of old FreeDOS kernel to zero.\r\n";
@@ -831,6 +833,27 @@ void displaynumber(int handle, uint16_t number) {
 	PRINT(handle, &buffer[index + 1]);
 }
 
+void displayhexnumber(int handle, uint16_t number, uint8_t mindigits) NON_RES_TEXT;
+void displayhexnumber(int handle, uint16_t number, uint8_t mindigits) {
+	char buffer[6];
+	char hexit;
+	int index = 5;
+	buffer[index--] = 0;
+	if (mindigits > 4)
+		mindigits = 4;
+	do {
+		hexit = (number % 16);
+		if (hexit < 10)
+			buffer[index--] = hexit + '0';
+		else
+			buffer[index--] = hexit - 10 + 'A';
+		number /= 16;
+		if (mindigits)
+			-- mindigits;
+	} while (number || mindigits);
+	PRINT(handle, &buffer[index + 1]);
+}
+
 typedef struct {
 	uint16_t patchoffset;
 	uint16_t filesize;
@@ -863,6 +886,10 @@ int displaystatus(uint16_t mpx) {
 		break;
 	  case 2:
 		PRINT(OUT, msg_patchstatus_needed);
+		displayhexnumber(OUT, FP_SEG(getvect(0x31)), 4);
+		PRINT(OUT, msg_patchstatus_needed_2);
+		displayhexnumber(OUT, s.patchoffset, 4);
+		PRINT(OUT, msg_patchstatus_needed_3);
 		break;
 	  case 3:
 		PRINT(OUT, msg_patchstatus_notneeded);
