@@ -271,6 +271,7 @@ extern void __far __interrupt __attribute__((near_section)) i2D_handler(void);
 extern uint8_t amisnum;
 extern uint16_t asm_find_resident() NON_RES_TEXT;
 extern uint16_t asm_uninstall(uint16_t mpx) NON_RES_TEXT;
+extern uint16_t asm_init(void) NON_RES_TEXT;
 
 /* Within IBM Interrupt Sharing Protocol header */
 extern void __far __interrupt (*old_handler2f)(void);
@@ -780,6 +781,7 @@ static const char msg_patchstatus_needed[] NON_RES_RODATA = "needed.\r\n";
 static const char msg_patchstatus_notneeded[] NON_RES_RODATA = "not needed.\r\n";
 static const char msg_patchstatus_unknown[] NON_RES_RODATA = "unknown.\r\n";
 static const char msg_patched[] NON_RES_RODATA = "Patched the share_installed byte of old FreeDOS kernel to zero.\r\n";
+static const char msg_patched_itself[] NON_RES_RODATA = "Resident patched the share_installed byte of old FreeDOS kernel to zero.\r\n";
 static const char msg_prefixed_notresident[] NON_RES_RODATA = ": Program is not resident!\r\n";
 static const char msg_filetable[] NON_RES_RODATA = "File table: ";
 static const char msg_free[] NON_RES_RODATA = " free / ";
@@ -989,21 +991,28 @@ int main(int argc, char **argv) {
 	}
 
 #if defined(__GNUC__)
+	(void)asm_init();
 	if (uninstallrequested) {
 		status_struct s;
+		uint8_t far * share_installed = NULL;
+		uint8_t priorflag = 0;
 		uint16_t rc;
 		uint16_t mpx = asm_find_resident();
 		asm_get_status(mpx, &s);
+		if (2 == s.patchstatus) {
+			share_installed = MK_FP(FP_SEG(getvect(0x31)), s.patchoffset);
+			priorflag = *share_installed;
+		}
 		rc = asm_uninstall(mpx);
 		if (rc == 0) {
 			PRINT(OUT, progname);
 			PRINT(OUT, msg_removed);
 			if (2 == s.patchstatus) {
-				uint8_t far * share_installed
-				  = MK_FP(FP_SEG(getvect(0x31)), s.patchoffset);
 				if (*share_installed) {
 					*share_installed = 0;
 					PRINT(OUT, msg_patched);
+				} else if (priorflag) {
+					PRINT(OUT, msg_patched_itself);
 				}
 			}
 			return 0;

@@ -53,6 +53,8 @@ DISCLAIMER: THE WORKS ARE WITHOUT WARRANTY.
 %include "lmacros3.mac"
 %include "amis.mac"
 
+	numdef SUPPORTGENERALUNINSTALLER, 1
+
 %if 0
 
 Supported Int2D functions:
@@ -67,10 +69,14 @@ AMIS - Get private entry point - NOP: no private entry point
 INP:	al = 01h
 OUT:	al = 00h
 
-AMIS - Uninstall - NOP: no resident uninstaller or NOP: can't uninstall
+AMIS - Uninstall - NOP: no resident uninstaller
 INP:	al = 02h
-OUT:	If installed from command line,
-	 al = 03h
+OUT:	if _SUPPORTGENERALUNINSTALLER=1,
+	 al = 04h (safe to remove, no resident uninstaller, TSR now disabled)
+	 bx = memory block of resident TSR (cs)
+	 patch applied. SFT fields reset. int 2Fh handler disabled
+	else,
+	 al = 03h (safe to remove, no resident uninstaller, TSR still enabled)
 	 bx = memory block of resident TSR (cs)
 
 AMIS - Request pop-up - NOP: no pop-up
@@ -100,8 +106,9 @@ OUT:	al = 00h
 
 SHARE - Get patch status (ctrl1)
 INP:	al = 21h
-OUT:	al = size of returned data (not 0 if supported, 3 for now)
-	dx:bx -> patch offset word, then patch status byte
+OUT:	al = size of returned data (not 0 if supported, 4 for now)
+	dx:bx -> patch offset word, then patch status byte,
+		then enable byte
 
 SHARE - Get data on free and total structures
 INP:	al = 22h
@@ -156,11 +163,67 @@ ctrl2.end:
 ctrl1:
 .offset:	dw -1
 .status:	db 1
+.enable:	db 1
 .end:
 
 
+%if _SUPPORTGENERALUNINSTALLER
+ section .text
+%else
+ section .data.startup
+%endif
+sft_size:	dw 0
+
+
+ section .text
+
 i2D.uninstall:
+%if _SUPPORTGENERALUNINSTALLER
+	mov al, 04h			; safe to remove, no resident uninstaller,
+					;  TSR now disabled
+	push es
+	push ds
+	push si
+	push di
+	push ax
+	push cx
+	push dx
+
+		; This code helps a general uninstaller that is not aware of
+		;  our specific situation. So, disable our handler, clear
+		;  the SFT field, and do the patch to the flag if needed.
+		; Our own uninstaller can check the patch status and its
+		;  flag contents before and after calling the uninstall
+		;  function to determine if we patched it already. Its
+		;  code still allows to finish up removal for any build of
+		;  the resident, regardless of what it does include.
+	cld
+
+	push cs
+	pop ds
+	clropt [ctrl1.enable], 1	; first disable the TSR
+
+	call clear_sft_shroff		; reset SFT field in each SFT
+
+	cmp byte [ctrl1.status], 2	; patch needed ?
+	jne @F
+	mov bx, word [ctrl1.offset]	; get offset
+	xor ax, ax
+	mov ds, ax			; = 0
+	mov ds, word [31h * 4 + 2]	; i31 vector has segment = DOS DS
+	mov byte [bx], al		; patch the flag (= 0)
+@@:
+
+	pop dx
+	pop cx
+	pop ax
+	pop di
+	pop si
+	pop ds
+	pop es
+%else
 	inc ax				; (= 03h) safe to remove but no resident uninstaller
+%endif
 	mov bx, cs			; = segment
 i2D.hwreset equ $-1		; (second byte of mov bx, cs is same as the retf opcode)
 	iret
@@ -447,6 +510,24 @@ uninstall_get_mpx:
 @@:
 
 uninstall_found_installed:	; ah = AMIS multiplex number of resident copy
+
+		; Check first if interrupts can be unhooked.
+		;  If not, we want to stay resident and enabled.
+	mov al, 04h
+	mov bl, 2Dh			; Dummy, for the API. We only accept code 04h.
+	int 2Dh				; AMIS determine hooked interrupts
+	cmp al, 04h
+	jne .fail		; General uninstallers should be prepared for at least 04h or 03h
+				; as return code here.
+	push ax
+	mov ds, dx			; ds:bx-> interrupt table
+	mov dx, UnhookInterruptSim
+	mov cx, .simulatedbefore
+	jmp loopamisintr
+.simulatedbefore:
+	jc unhookerror
+	pop ax				; retain multiplex number
+
 	mov al, 02h
 	mov dx, cs
 	mov bx, .done			; dx:bx = return address if successful
@@ -513,8 +594,30 @@ uninstall_found_installed:	; ah = AMIS multiplex number of resident copy
 					; (but interrupts are already unhooked now)
 
 .done:
+	call clear_sft_shroff		; do this if resident did not yet
 
-clear_sft_shroff:
+	xor ax, ax			; return code: 0, success
+@@:
+	jmp uninstall.return
+
+unhookerror:
+	mov ax, 3		; return code: error, 3 (unhook simulatiom failed)
+	jmp @B
+
+unhookerrorcritical:
+	mov ax, 4		; return code: error, 4 (unhook failed)
+	jmp @B
+
+	lleave ctx
+
+
+global asm_init
+asm_init:
+	push ds
+	push es
+	push si
+	push di
+
 	mov dx, 3Bh			; default SFT entry size
 	mov ax, 1216h
 	xor bx, bx			; SFT handle 0
@@ -539,52 +642,15 @@ clear_sft_shroff:
 	jne .gotsize			; if no -->
 	mov dx, di			; take computed size
 .gotsize:
+	mov word [cs:sft_size], dx
 
-; Refer to https://github.com/FDOS/kernel/blob/cedcaee5adbc2d0d4d08c3572aae8decf50d4bb4/kernel/dosfns.c#L538
-;  and the structure at https://github.com/FDOS/kernel/blob/cedcaee5adbc2d0d4d08c3572aae8decf50d4bb4/hdr/sft.h#L79
-; Absent SHARE the record number (word at 33h) is initialised as -1.
-;  So we overwrite the record number with this for every file.
-;  (Redirectors might use the SHARE record number field to their
-;  own purposes so don't modify their entries.)
+	xor ax, ax			; return code is an uint16_t (unused)
 
-	mov ah, 52h
-	int 21h
-	les bx, [es:bx + 4]		; -> first SFT table
-.tableloop:
-	cmp bx, -1			; was last table ?
-	je .done			; yes -->
-	mov di, 6			; es:bx + di -> first entry
-	mov cx, word [es:bx + 4]	; amount of entries this table
-	jcxz .tablenext
-.entryloop:
-	cmp word [es:bx + di], 0	; referenced ?
-	je .entrynext			; no -->
-	testopt [es:bx + di + 5], 8080h, 1
-					; redirector or character device ?
-	jnz .entrynext			; yes, skip -->
-	or word [es:bx + di + 33h], -1	; reset sharing record number
-.entrynext:
-	add di, dx			; es:bx + di -> next entry, if any
-	loop .entryloop
-.tablenext:
-	les bx, [es:bx]			; -> next table, bx = -1 if none
-	jmp .tableloop
-
-.done:
-
-	xor ax, ax			; return code: 0, success
-@@:
-	jmp uninstall.return
-
-unhookerror:
-	mov ax, 3		; return code: error, 3 (unhook simulatiom failed)
-	jmp @B
-
-unhookerrorcritical:
-	mov ax, 4		; return code: error, 4 (unhook failed)
-	jmp @B
-
-	lleave ctx
+	pop di
+	pop si
+	pop es
+	pop ds
+	retn
 
 
 		; INP:	ds:bx -> AMIS interrupt list
@@ -915,6 +981,9 @@ old_handler2f equ i2F.next
 	; IBM Interrupt Sharing Protocol header
 iispentry i2F, 0, i2D
 
+	test byte [cs:ctrl1.enable], 1
+	jz .run_old
+
 	; Check whether it is a call for us.
 	;  Doing this early speeds up the great
 	;  majority of cases and allows for some
@@ -1092,3 +1161,45 @@ seq_setting:
 .offset: equ $ - 3
 .not:
 .length: equ $ - .
+
+
+%if _SUPPORTGENERALUNINSTALLER
+ section .text
+%else
+ section .text.startup
+%endif
+
+clear_sft_shroff:
+
+; Refer to https://github.com/FDOS/kernel/blob/cedcaee5adbc2d0d4d08c3572aae8decf50d4bb4/kernel/dosfns.c#L538
+;  and the structure at https://github.com/FDOS/kernel/blob/cedcaee5adbc2d0d4d08c3572aae8decf50d4bb4/hdr/sft.h#L79
+; Absent SHARE the record number (word at 33h) is initialised as -1.
+;  So we overwrite the record number with this for every file.
+;  (Redirectors might use the SHARE record number field to their
+;  own purposes so don't modify their entries.)
+
+	mov ah, 52h
+	int 21h
+	les bx, [es:bx + 4]		; -> first SFT table
+.tableloop:
+	cmp bx, -1			; was last table ?
+	je .done			; yes -->
+	mov di, 6			; es:bx + di -> first entry
+	mov cx, word [es:bx + 4]	; amount of entries this table
+	jcxz .tablenext
+.entryloop:
+	cmp word [es:bx + di], 0	; referenced ?
+	je .entrynext			; no -->
+	testopt [es:bx + di + 5], 8080h, 1
+					; redirector or character device ?
+	jnz .entrynext			; yes, skip -->
+	or word [es:bx + di + 33h], -1	; reset sharing record number
+.entrynext:
+	add di, word [cs:sft_size]	; es:bx + di -> next entry, if any
+	loop .entryloop
+.tablenext:
+	les bx, [es:bx]			; -> next table, bx = -1 if none
+	jmp .tableloop
+
+.done:
+	retn
