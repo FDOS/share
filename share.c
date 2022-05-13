@@ -157,13 +157,17 @@ typedef struct {
 
 		/* ------------- GLOBALS ------------- */
 static char progname[9] NON_RES_BSS;
-static unsigned int file_table_size_bytes NON_RES_DATA = 2048;
 #if defined(__GNUC__)
 extern uint16_t file_table_size;	/* # of file_t we can have */
+extern uint16_t file_table_size_bytes;	/* amount bytes */
 extern uint16_t file_table_free;
+extern uint16_t file_table_offset;
 extern uint16_t lock_table_size;	/* # of lock_t we can have */
+extern uint16_t lock_table_size_bytes;	/* amount bytes */
 extern uint16_t lock_table_free;
+extern uint16_t lock_table_offset;
 #else
+static unsigned int file_table_size_bytes NON_RES_DATA = 2048;
 uint16_t file_table_size = 0;		/* # of file_t we can have */
 uint16_t lock_table_size = 20;		/* # of lock_t we can have */
 #endif
@@ -271,6 +275,8 @@ extern void __far __interrupt __attribute__((near_section)) i2D_handler(void);
 extern uint8_t amisnum;
 extern uint16_t asm_find_resident() NON_RES_TEXT;
 extern uint16_t asm_uninstall(uint16_t mpx) NON_RES_TEXT;
+extern uint16_t asm_enable(uint16_t mpx) NON_RES_TEXT;
+extern uint16_t asm_disable(uint16_t mpx) NON_RES_TEXT;
 extern uint16_t asm_init(void) NON_RES_TEXT;
 
 /* Within IBM Interrupt Sharing Protocol header */
@@ -714,7 +720,6 @@ unsigned short init_tables(void) {
 
 #else /* GNUC */
 	char *p;
-	unsigned int lock_table_size_bytes;
 
 	file_table_size = file_table_size_bytes / sizeof(file_t);
 	lock_table_size_bytes = lock_table_size * sizeof(lock_t);
@@ -729,6 +734,8 @@ unsigned short init_tables(void) {
 
 	file_table = (void *)p;
 	lock_table = (void *)(p + file_table_size_bytes);
+	file_table_offset = (uint16_t)file_table;
+	lock_table_offset = (uint16_t)lock_table;
 
 	fptr = (char far *)sbrk(0);
 #endif
@@ -742,7 +749,7 @@ static const char msg_usage1[] NON_RES_RODATA = "Installs file-sharing and locki
 			"capabilities on your hard disk.\r\n\r\n";
 static const char msg_usage2[] NON_RES_RODATA = " [/F:space] [/L:locks]"
 #if defined(__GNUC__)
-		 " [/U] [/S] [/O]"
+		 " [/U] [/S] [/O] [/D] [/E]"
 #endif
 		 "\r\n\r\n"
 		 "  /F:space   Allocates file space (in bytes) "
@@ -753,6 +760,8 @@ static const char msg_usage2[] NON_RES_RODATA = " [/F:space] [/L:locks]"
 		 "  /U         Uninstall a resident instance.\r\n"
 		 "  /S         Show patch status and table sizes.\r\n"
 		 "  /O         Only operate if already resident, do not install.\r\n"
+		 "  /D         Disable a resident instance.\r\n"
+		 "  /E         Enable a resident instance. (Default.)\r\n"
 #endif
 		 ;
 
@@ -763,7 +772,13 @@ static const char msg_invalidhandler2f[] NON_RES_RODATA = ": invalid interrupt 2
 static const char msg_installed[] NON_RES_RODATA = " installed.\r\n";
 
 #if defined(__GNUC__)
+static const char msg_alreadyinstalled_no_amis[] NON_RES_RODATA = " is already installed, but not found on AMIS interrupt!\r\n";
+static const char msg_enabled[] NON_RES_RODATA = " enabled.\r\n";
+static const char msg_disabled[] NON_RES_RODATA = " disabled.\r\n";
+static const char msg_cannotenable[] NON_RES_RODATA = " cannot be enabled, check TSR version.\r\n";
+static const char msg_cannotdisable[] NON_RES_RODATA = " cannot be disabled, check TSR version.\r\n";
 static const char msg_isinstalled[] NON_RES_RODATA = " is installed resident.\r\n";
+static const char msg_isinstalleddisabled[] NON_RES_RODATA = " is installed resident, but currently disabled.\r\n";
 static const char msg_nofreeamisnum[] NON_RES_RODATA = ": no free AMIS multiplex number!\r\n";
 static const char msg_invalidhandler2d[] NON_RES_RODATA = ": invalid interrupt 2Dh handler!\r\n";
 static const char msg_removed[] NON_RES_RODATA = " removed.\r\n";
@@ -861,6 +876,7 @@ typedef struct {
 	uint16_t locksize;
 	uint16_t lockfree;
 	uint8_t patchstatus;
+	uint8_t enable;
 } status_struct;
 
 extern void asm_get_status(uint16_t mpx, status_struct * s) NON_RES_TEXT;
@@ -899,12 +915,16 @@ int displaystatus(uint16_t mpx) {
 		break;
 	}
 	PRINT(OUT, msg_filetable);
-	displaynumber(OUT, s.filefree);
-	PRINT(OUT, msg_free);
+	if (s.enable & 1) {
+		displaynumber(OUT, s.filefree);
+		PRINT(OUT, msg_free);
+	}
 	displaynumber(OUT, s.filesize);
 	PRINT(OUT, msg_total_locktable);
-	displaynumber(OUT, s.lockfree);
-	PRINT(OUT, msg_free);
+	if (s.enable & 1) {
+		displaynumber(OUT, s.lockfree);
+		PRINT(OUT, msg_free);
+	}
 	displaynumber(OUT, s.locksize);
 	PRINT(OUT, msg_total_eol);
 	return 0;
@@ -917,10 +937,20 @@ int main(int argc, char **argv) {
 	unsigned short top_of_tsr;
 	int installed = 0;
 #if defined(__GNUC__)
+	status_struct s;
+	uint8_t far * share_installed = NULL;
+	uint8_t priorflag = 0;
+	uint16_t rc;
+	uint16_t mpx;
 	int uninstallrequested = 0, statusrequested = 0, onlyoptions = 0;
+	int enablerequested = 0, disablerequested = 0;
 #endif
 	int i;
 	uint8_t ii;
+
+#if defined(__GNUC__)
+	file_table_size_bytes = 2048;
+#endif
 
 		/* Extract program name from argv[0] into progname. */
 	if (argv[0] != NULL) {
@@ -981,6 +1011,14 @@ int main(int argc, char **argv) {
 		case 'O':
 			onlyoptions = 1;
 			break;
+		case 'd':
+		case 'D':
+			disablerequested = 1;
+			break;
+		case 'e':
+		case 'E':
+			enablerequested = 1;
+			break;
 #endif
 		case 'f':
 		case 'F':
@@ -1019,13 +1057,10 @@ int main(int argc, char **argv) {
 
 #if defined(__GNUC__)
 	(void)asm_init();
+	mpx = asm_find_resident();
+	asm_get_status(mpx, &s);
+
 	if (uninstallrequested) {
-		status_struct s;
-		uint8_t far * share_installed = NULL;
-		uint8_t priorflag = 0;
-		uint16_t rc;
-		uint16_t mpx = asm_find_resident();
-		asm_get_status(mpx, &s);
 		if (2 == s.patchstatus) {
 			share_installed = MK_FP(FP_SEG(getvect(0x31)), s.patchoffset);
 			priorflag = *share_installed;
@@ -1064,31 +1099,79 @@ int main(int argc, char **argv) {
 			return 10;
 		}
 	}
-#endif
 
-		/* Now try to install. */
-
-	if (installed) {
-#if defined(__GNUC__)
-		if (statusrequested || onlyoptions) {
-			PRINT(OUT, progname);
-			PRINT(OUT, msg_isinstalled);
+	if (installed || (mpx & 0xFF00) == 0) {
+		if ((mpx & 0xFF00) == 0 && (s.enable & 1) == 0) {
+			/* Found and is disabled. */
+			if (statusrequested || disablerequested) {
+				PRINT(OUT, progname);
+				PRINT(OUT, msg_isinstalleddisabled);
+			} else {
+				if (! asm_enable(mpx)) {
+					PRINT(OUT, progname);
+					PRINT(OUT, msg_enabled);
+				} else {
+					PRINT(ERR, progname);
+					PRINT(ERR, msg_cannotenable);
+				}
+				asm_get_status(mpx, &s);
+			}
+		} else if ((mpx & 0xFF00) == 0) {
+			/* Found and is enabled. */
+			if (statusrequested || enablerequested) {
+				PRINT(OUT, progname);
+				PRINT(OUT, msg_isinstalled);
+			} else if (disablerequested) {
+				if (2 == s.patchstatus) {
+					share_installed = MK_FP(FP_SEG(getvect(0x31)), s.patchoffset);
+					priorflag = *share_installed;
+				}
+				if (! asm_disable(mpx)) {
+					PRINT(OUT, progname);
+					PRINT(OUT, msg_disabled);
+					if (2 == s.patchstatus) {
+						if (*share_installed) {
+							*share_installed = 0;
+						}
+						if (priorflag) {
+							PRINT(OUT, msg_patched);
+						}
+					}
+				} else {
+					PRINT(ERR, progname);
+					PRINT(ERR, msg_cannotdisable);
+				}
+				asm_get_status(mpx, &s);
+			} else {
+				if (onlyoptions) {
+					PRINT(OUT, progname);
+					PRINT(OUT, msg_isinstalled);
+				} else {
+					PRINT(ERR, progname);
+					PRINT(ERR, msg_alreadyinstalled);
+				}
+			}
 		} else {
 			PRINT(ERR, progname);
-			PRINT(ERR, msg_alreadyinstalled);
+			PRINT(ERR, msg_alreadyinstalled_no_amis);
 		}
 		if (statusrequested) {
-			(void)displaystatus(0xFFFF);
+			(void)displaystatus(mpx);
 		}
+		return 1;
+	}
 #else
+	if (installed) {
 		PRINT(ERR, progname);
 		PRINT(ERR, msg_alreadyinstalled);
-#endif
 		return 1;
 	}
 
+		/* Now try to install. */
+#endif
+
 #if defined(__GNUC__)
-	if (onlyoptions) {
+	if (onlyoptions || disablerequested || enablerequested) {
 		PRINT(ERR, progname);
 		PRINT(ERR, msg_prefixed_notresident);
 		return 11;
