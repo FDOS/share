@@ -273,7 +273,7 @@ extern void __far __interrupt (*i2D_next)(void);
 /* Prototype for NASM interrupt handler function */
 extern void __far __interrupt __attribute__((near_section)) i2D_handler(void);
 extern uint8_t amisnum;
-extern uint16_t asm_find_resident() NON_RES_TEXT;
+extern uint16_t asm_find_resident(void) NON_RES_TEXT;
 extern uint16_t asm_uninstall(uint16_t mpx) NON_RES_TEXT;
 extern uint16_t asm_enable(uint16_t mpx) NON_RES_TEXT;
 extern uint16_t asm_disable(uint16_t mpx) NON_RES_TEXT;
