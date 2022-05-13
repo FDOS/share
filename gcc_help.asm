@@ -62,7 +62,7 @@ Supported Int2D functions:
 AMIS - Installation check
 INP:	al = 00h
 OUT:	al = 0FFh
-	cx = Private version number (currently 0100h)
+	cx = Private version number (currently 010Ah)
 	dx:di-> signature: "DOS-C   ","SHARE   "
 
 AMIS - Get private entry point - NOP: no private entry point
@@ -121,8 +121,13 @@ OUT:	al = FFh if supported without table,
 	 dx:bx -> table of 4 words,
 	 file total, file free, lock total, lock free
 
+SHARE - Get data on structure pointers
+INP:	al = 23h
+	al = (N * 4) if supported,
+	 dx:bx -> table (word offset in same segment, word size)
+
 TSR - Reserved for TSR
-INP:	al = 23h..FFh
+INP:	al = 24h..FFh
 OUT:	al = 00h
 
 %endif
@@ -148,9 +153,13 @@ amisintr:
 	; These variables are used as globals
 	;  by the C code. Each is an uint16_t.
 global file_table_size
+global file_table_size_bytes
 global file_table_free
+global file_table_offset
 global lock_table_size
+global lock_table_size_bytes
 global lock_table_free
+global lock_table_offset
 
 	align 2, db 0
 ctrl2:
@@ -159,6 +168,14 @@ file_table_free:	dw 0
 lock_table_size:	dw 20
 lock_table_free:	dw 20
 ctrl2.end:
+
+	align 2, db 0
+ctrl3:
+file_table_offset:	dw 0
+file_table_size_bytes:	dw 0
+lock_table_offset:	dw 0
+lock_table_size_bytes:	dw 0
+ctrl3.end:
 
 ctrl1:
 .offset:	dw -1
@@ -251,6 +268,8 @@ amisnum equ $-1				; AMIS multiplex number (data for cmp opcode)
 	je .ctrl1
 	cmp al, 22h
 	je .ctrl2
+	cmp al, 23h
+	je .ctrl3
 				; all other functions are reserved or not supported by TSR
 .nop:
 	mov al, 0			; show not implemented
@@ -258,7 +277,7 @@ amisnum equ $-1				; AMIS multiplex number (data for cmp opcode)
 
 .installationcheck:
 	dec al				; (= FFh) show we're here
-	mov cx, 100h			; = version
+	mov cx, 10Ah			; = version
 	mov di, amissig			; dx:di -> AMIS signature strings of this program
 .iret_dx_cs:
 	mov dx, cs
@@ -277,6 +296,11 @@ amisnum equ $-1				; AMIS multiplex number (data for cmp opcode)
 .ctrl2:
 	mov al, ctrl2.end - ctrl2
 	mov bx, ctrl2
+	jmp short .iret_dx_cs
+
+.ctrl3:
+	mov al, ctrl3.end - ctrl3
+	mov bx, ctrl3
 	jmp short .iret_dx_cs
 
 
@@ -355,6 +379,7 @@ ssFileFree:	resw 1
 ssLockSize:	resw 1
 ssLockFree:	resw 1
 ssPatchStatus:	resb 1
+ssEnable:	resb 1
 	endstruc
 
 
@@ -378,6 +403,7 @@ asm_get_status:
 	mov al, 0
 	rep stosb
 	pop di
+	mov byte [di + ssEnable], 1
 
 	mov ax, word [bp + ?mpx]
 	xchg al, ah		; ah = multiplex number
@@ -392,8 +418,12 @@ asm_get_status:
 	mov dx, word [es:bx]
 	mov word [di + ssPatchOffset], dx
 				; copy over patch offset
+	cmp al, 4
 	mov al, byte [es:bx + 2]
 	mov byte [di + ssPatchStatus], al
+	jb @F
+	mov al, byte [es:bx + 3]
+	mov byte [di + ssEnable], al
 @@:
 
 	mov al, 22h
@@ -432,6 +462,165 @@ asm_get_status:
 	pop ds
 	lleave
 	lret
+
+
+global asm_enable
+asm_enable:
+
+	lframe near
+	lpar word, mpx
+	lenter
+	push ds
+
+	mov ax, word [bp + ?mpx]
+	xchg al, ah		; ah = multiplex number
+	test al, al		; is it valid ?
+	jz @F			; yes -->
+
+		; If not found
+	mov ax, 1		; return code: error, 1 (none resident)
+	jmp .return
+
+@@:
+	mov al, 21h
+	int 2Dh
+	cmp al, 4
+	jb .return_2
+
+	mov ds, dx
+	test byte [bx + 3], 1
+	jnz .return_3
+
+		; When AMIS function 02h is called, it will
+		;  disable the resident handler. However, it
+		;  doesn't clear the data. Therefore, when
+		;  enabling a disabled resident, clear this.
+	push di
+	push es
+	push dx
+	push bx
+	call zero_out_data
+	pop bx
+	pop ds
+	pop es
+	pop di
+
+	or byte [bx + 3], 1
+	xor ax, ax
+	jmp .return
+
+.return_3:
+	mov ax, 3			; is already enabled
+	jmp .return
+
+.return_2:
+	mov ax, 2			; ctrl1.enable byte not present
+.return:
+	pop ds
+	lleave
+	retn
+
+
+global asm_disable
+asm_disable:
+
+	lframe near
+	lpar word, mpx
+	lenter
+
+	mov ax, word [bp + ?mpx]
+	xchg al, ah		; ah = multiplex number
+	test al, al		; is it valid ?
+	jz @F			; yes -->
+
+		; If not found
+	mov ax, 1		; return code: error, 1 (none resident)
+	jmp .return
+
+@@:
+	mov al, 21h
+	int 2Dh
+	cmp al, 4
+	mov ax, 2
+	jb .return
+	push ds
+	mov ds, dx
+	clropt [bx + 3], 1		; disable int 2Fh handler
+
+	push es
+	push si
+	push di
+	push dx
+	push bx
+	call clear_sft_shroff		; reset SFT field in each SFT
+	pop bx
+	pop ds
+
+	cmp byte [bx + ctrl1.status - ctrl1], 2
+					; patch needed ?
+	jne @F
+	mov bx, word [bx + ctrl1.offset - ctrl1]
+					; get offset
+	xor ax, ax
+	mov ds, ax			; = 0
+	mov ds, word [31h * 4 + 2]	; i31 vector has segment = DOS DS
+	mov byte [bx], al		; patch the flag (= 0)
+@@:
+
+	mov ah, byte [bp + ?mpx]
+	call zero_out_data
+
+	pop di
+	pop si
+	pop es
+
+	pop ds
+	xor ax, ax
+.return:
+	lleave
+	retn
+
+
+		; INP:	ah = multiplex number
+		; CHG:	dx, bx, cx, di, es, ds, ax
+zero_out_data:
+	mov al, 22h
+	int 2Dh
+	mov ds, dx
+
+	cmp al, 4
+	jb @F
+	push word [bx]
+	pop word [bx + 2]
+
+	cmp al, 8
+	jb @F
+	push word [bx + 4]
+	pop word [bx + 6]
+@@:
+
+	mov al, 23h
+	int 2Dh
+	mov ds, dx
+	mov es, dx
+
+	cmp al, 4
+	jb @F
+	xchg ax, dx
+	mov di, word [bx]
+	mov cx, word [bx + 2]
+	xor ax, ax
+	rep stosb
+	xchg ax, dx
+
+	cmp al, 8
+	jb @F
+	mov di, word [bx + 4]
+	mov cx, word [bx + 6]
+	xor ax, ax
+	rep stosb
+@@:
+	retn
 
 
 global asm_uninstall
