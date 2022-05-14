@@ -28,4 +28,4 @@ goto doit
 
 :doit
 rem We use GNU make for all targets
-make
+make -C src

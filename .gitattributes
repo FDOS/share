@@ -2,3 +2,41 @@
 *.bat text eol=crlf
 *.sh text eol=lf
 .github/workflows/*.yml text eol=lf
+
+nls/*.en working-tree-encoding=CP437 text eol=auto
+nls/*.lv working-tree-encoding=CP775 text eol=auto
+nls/*.nl working-tree-encoding=CP850 text eol=auto
+nls/*.fi working-tree-encoding=CP850 text eol=auto
+nls/*.fr working-tree-encoding=CP850 text eol=auto
+nls/*.de working-tree-encoding=CP850 text eol=auto
+nls/*.dk working-tree-encoding=CP850 text eol=auto
+nls/*.it working-tree-encoding=CP850 text eol=auto
+nls/*.pt working-tree-encoding=CP850 text eol=auto
+nls/*.es working-tree-encoding=CP850 text eol=auto
+nls/*.sv working-tree-encoding=CP850 text eol=auto
+nls/*.hu working-tree-encoding=CP852 text eol=auto
+nls/*.no working-tree-encoding=CP850 text eol=auto
+nls/*.rs working-tree-encoding=CP852 text eol=auto
+nls/*.sl working-tree-encoding=CP852 text eol=auto
+nls/*.tr working-tree-encoding=CP857 text eol=auto
+nls/*.ru working-tree-encoding=CP866 text eol=auto
+nls/*.ua working-tree-encoding=CP866 text eol=auto
+
+help/*.en working-tree-encoding=CP437 text eol=auto
+help/*.lv working-tree-encoding=CP775 text eol=auto
+help/*.nl working-tree-encoding=CP850 text eol=auto
+help/*.fi working-tree-encoding=CP850 text eol=auto
+help/*.fr working-tree-encoding=CP850 text eol=auto
+help/*.de working-tree-encoding=CP850 text eol=auto
+help/*.dk working-tree-encoding=CP850 text eol=auto
+help/*.it working-tree-encoding=CP850 text eol=auto
+help/*.pt working-tree-encoding=CP850 text eol=auto
+help/*.es working-tree-encoding=CP850 text eol=auto
+help/*.sv working-tree-encoding=CP850 text eol=auto
+help/*.hu working-tree-encoding=CP852 text eol=auto
+help/*.no working-tree-encoding=CP850 text eol=auto
+help/*.rs working-tree-encoding=CP852 text eol=auto
+help/*.sl working-tree-encoding=CP852 text eol=auto
+help/*.tr working-tree-encoding=CP857 text eol=auto
+help/*.ru working-tree-encoding=CP866 text eol=auto
+help/*.ua working-tree-encoding=CP866 text eol=auto
