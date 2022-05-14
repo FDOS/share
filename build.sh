@@ -6,17 +6,17 @@ if [ x"${COMPILER}" = "xgcc" ] ; then
   export XOBJS="gcc_help.obj"
   export LD="ia16-elf-gcc"
   export LOPT="-mtsr share.obj ${XOBJS} -o share.com -li86 -Wl,-Map=share.map"
-  make
+  make -C src
 
 elif [ x"${COMPILER}" = "xtcc2-emu" ] ; then
   if ! $(file "share.c" | grep -q CRLF) ; then
     echo "Warning: Turbo C 2.01 doesn't process files with Unix line endings"
     echo "         Converting ..."
-    unix2dos "share.c"
+    unix2dos "src/share.c"
     UNDO=1
   fi
   dosemu -q -td -K . -E "build.bat tcc2"
-  [ "$UNDO" = "1" ] && dos2unix "share.c"
+  [ "$UNDO" = "1" ] && dos2unix "src/share.c"
   exit $?
 
 elif [ x"${COMPILER}" = "xtcc3-emu" ] ; then
