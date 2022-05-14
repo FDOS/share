@@ -29,5 +29,5 @@ jobs:
 
     - name: Build
       run: |
-        make clobber
+        make -C src clobber
         env COMPILER=gcc ./build.sh
