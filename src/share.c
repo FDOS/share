@@ -40,9 +40,8 @@ typedef unsigned short uint16_t;
 #error "This software must be compiled with TurboC, TurboC++ or Gcc-ia16"
 #endif
 
-/* Changed by Eric Auer 5/2004: Squeezing executable size a bit -> */
-/* Replaced fprint(stderr or stdout,...) by write(hand, buf, size) */
-/* Keeps stream stuff and printf stuff outside the file and TSR... */
+#include "../kitten/kitten.h"
+#include "../tnyprntf/tnyprntf.h"
 
 		/* ------------- DEFINES ------------- */
 #define MUX_INT_NO 0x2f
@@ -174,21 +173,14 @@ uint16_t lock_table_size = 20;		/* # of lock_t we can have */
 static file_t *file_table = NULL;
 static lock_t *lock_table = NULL;
 
+static nl_catd cat;    /* handle for localized messages (catalog) */
+
 
 		/* ------------- PROTOTYPES ------------- */
 static void usage(void) NON_RES_TEXT;
 static void bad_params(void) NON_RES_TEXT;
 unsigned short init_tables(void) NON_RES_TEXT;
 int main(int argc, char **argv) NON_RES_TEXT;
-
-/* PRINT added by Eric */
-#define ERR 2	/* handle of stderr */
-#define OUT 1	/* handle of stdout */
-static void PRINT(int handle, const char * text) NON_RES_TEXT;
-static void PRINT(int handle, const char * text) {
-	(void)write (handle, text, strlen(text));
-	/* return value is -1 error or N bytes_written. Ignored. */
-}
 
 
 	/* DOS calls this to see if it's okay to open the file.
@@ -745,76 +737,76 @@ unsigned short init_tables(void) {
 	return paras;
 }
 
-static const char msg_usage1[] NON_RES_RODATA = "Installs file-sharing and locking "
-			"capabilities on your hard disk.\r\n\r\n";
-static const char msg_usage2[] NON_RES_RODATA = " [/F:space] [/L:locks]"
-#if defined(__GNUC__)
-		 " [/U] [/S] [/O] [/D] [/E]"
+#if !defined(__GNUC__)
+static const char msg_usage_3[] NON_RES_RODATA = "%s [/F:space] [/L:locks]\n";
+#else
+static const char msg_usage_4[] NON_RES_RODATA = "%s [/F:space] [/L:locks] [/U] [/S] [/O] [/D] [/E]\n";
+static const char msg_usage_5[] NON_RES_RODATA = "  /U         Uninstall a resident instance.\n";
+static const char msg_usage_6[] NON_RES_RODATA = "  /S         Show patch status and table sizes.\n";
+static const char msg_usage_7[] NON_RES_RODATA = "  /O         Only operate if already resident, do not install.\n";
+static const char msg_usage_8[] NON_RES_RODATA = "  /D         Disable a resident instance.\n";
+static const char msg_usage_9[] NON_RES_RODATA = "  /E         Enable a resident instance. (Default.)\n";
 #endif
-		 "\r\n\r\n"
-		 "  /F:space   Allocates file space (in bytes) "
-			"for file-sharing information.\r\n"
-		 "  /L:locks   Sets the number of files that can "
-			"be locked at one time.\r\n"
-#if defined(__GNUC__)
-		 "  /U         Uninstall a resident instance.\r\n"
-		 "  /S         Show patch status and table sizes.\r\n"
-		 "  /O         Only operate if already resident, do not install.\r\n"
-		 "  /D         Disable a resident instance.\r\n"
-		 "  /E         Enable a resident instance. (Default.)\r\n"
-#endif
-		 ;
+static const char msg_usage_1[] NON_RES_RODATA = "  /F:space   Allocates file space (in bytes) for file-sharing information.\n";
+static const char msg_usage_2[] NON_RES_RODATA = "  /L:locks   Sets the number of files that can be locked at one time.\n";
+static const char msg_usage_0[] NON_RES_RODATA = "Installs file-sharing and locking capabilities on your hard disk.\n";
 
-static const char msg_badparams[] NON_RES_RODATA = ": parameter out of range!\r\n";
-static const char msg_alreadyinstalled[] NON_RES_RODATA = " is already installed!\r\n";
-static const char msg_outofmemory[] NON_RES_RODATA = ": out of memory!\r\n";
-static const char msg_invalidhandler2f[] NON_RES_RODATA = ": invalid interrupt 2Fh handler!\r\n";
-static const char msg_installed[] NON_RES_RODATA = " installed.\r\n";
+static const char msg_badparams[] NON_RES_RODATA = "%s: parameter out of range!\n";
+static const char msg_alreadyinstalled[] NON_RES_RODATA = "%s: is already installed!\n";
+static const char msg_outofmemory[] NON_RES_RODATA = "%s: out of memory!\n";
+static const char msg_invalidhandler2f[] NON_RES_RODATA = "%s: invalid interrupt 2Fh handler!\n";
+static const char msg_installed[] NON_RES_RODATA = "%s: installed.\n";
 
 #if defined(__GNUC__)
-static const char msg_alreadyinstalled_no_amis[] NON_RES_RODATA = " is already installed, but not found on AMIS interrupt!\r\n";
-static const char msg_enabled[] NON_RES_RODATA = " enabled.\r\n";
-static const char msg_disabled[] NON_RES_RODATA = " disabled.\r\n";
-static const char msg_cannotenable[] NON_RES_RODATA = " cannot be enabled, check TSR version.\r\n";
-static const char msg_cannotdisable[] NON_RES_RODATA = " cannot be disabled, check TSR version.\r\n";
-static const char msg_isinstalled[] NON_RES_RODATA = " is installed resident.\r\n";
-static const char msg_isinstalleddisabled[] NON_RES_RODATA = " is installed resident, but currently disabled.\r\n";
-static const char msg_nofreeamisnum[] NON_RES_RODATA = ": no free AMIS multiplex number!\r\n";
-static const char msg_invalidhandler2d[] NON_RES_RODATA = ": invalid interrupt 2Dh handler!\r\n";
-static const char msg_removed[] NON_RES_RODATA = " removed.\r\n";
-static const char msg_cannotremove[] NON_RES_RODATA = ": cannot remove, ";
-static const char msg_notinstalled[] NON_RES_RODATA = "not yet installed.\r\n";
-static const char msg_somefailure[] NON_RES_RODATA = "some failure.\r\n";
-static const char msg_unhookerror[] NON_RES_RODATA = "handlers hooked AMIS-incompatible.\r\n";
-static const char msg_unhookerrorcritical[] NON_RES_RODATA = "internal unhook error.\r\n";
-static const char msg_unknownerror[] NON_RES_RODATA = "unknown error.\r\n";
-static const char msg_notresident[] NON_RES_RODATA = "Program is not resident!\r\n";
-static const char msg_patchstatus[] NON_RES_RODATA = "Patch status: ";
-static const char msg_patchstatus_notsupported[] NON_RES_RODATA = "not supported by TSR.\r\n";
-static const char msg_patchstatus_indeterminate[] NON_RES_RODATA = "indeterminate.\r\n";
-static const char msg_patchstatus_needed[] NON_RES_RODATA = "needed, flag at ";
-static const char msg_patchstatus_needed_2[] NON_RES_RODATA = "h:";
-static const char msg_patchstatus_needed_3[] NON_RES_RODATA = "h.\r\n";
-static const char msg_patchstatus_notneeded[] NON_RES_RODATA = "not needed.\r\n";
-static const char msg_patchstatus_unknown[] NON_RES_RODATA = "unknown.\r\n";
-static const char msg_patched[] NON_RES_RODATA = "Patched the share_installed byte of old FreeDOS kernel to zero.\r\n";
-static const char msg_patched_itself[] NON_RES_RODATA = "Resident patched the share_installed byte of old FreeDOS kernel to zero.\r\n";
-static const char msg_prefixed_notresident[] NON_RES_RODATA = ": Program is not resident!\r\n";
-static const char msg_filetable[] NON_RES_RODATA = "File table: ";
-static const char msg_free[] NON_RES_RODATA = " free / ";
-static const char msg_total_locktable[] NON_RES_RODATA = " total, lock table: ";
-static const char msg_total_eol[] NON_RES_RODATA = " total\r\n";
+static const char msg_alreadyinstalled_no_amis[] NON_RES_RODATA = "%s: is already installed, but not found on AMIS interrupt!\n";
+static const char msg_enabled[] NON_RES_RODATA = "%s: enabled.\n";
+static const char msg_disabled[] NON_RES_RODATA = "%s: disabled.\n";
+static const char msg_cannotenable[] NON_RES_RODATA = "%s: cannot be enabled, check TSR version.\n";
+static const char msg_cannotdisable[] NON_RES_RODATA = "%s: cannot be disabled, check TSR version.\n";
+static const char msg_isinstalled[] NON_RES_RODATA = "%s: is installed resident.\n";
+static const char msg_isinstalleddisabled[] NON_RES_RODATA = "%s: is installed resident, but currently disabled.\n";
+static const char msg_nofreeamisnum[] NON_RES_RODATA = "%s: no free AMIS multiplex number!\n";
+static const char msg_invalidhandler2d[] NON_RES_RODATA = "%s: invalid interrupt 2Dh handler!\n";
+static const char msg_removed[] NON_RES_RODATA = "%s: removed.\n";
+static const char msg_notinstalled[] NON_RES_RODATA = "%s: cannot remove, not yet installed.\n";
+static const char msg_somefailure[] NON_RES_RODATA = "%s: cannot remove, some failure.\n";
+static const char msg_unhookerror[] NON_RES_RODATA = "%s: cannot remove, handlers hooked AMIS-incompatible.\n";
+static const char msg_unhookerrorcritical[] NON_RES_RODATA = "%s: cannot remove, internal unhook error.\n";
+static const char msg_unknownerror[] NON_RES_RODATA = "%s: cannot remove, unknown error.\n";
+static const char msg_prefixed_notresident[] NON_RES_RODATA = "%s: program is not resident!\n";
+
+static const char msg_notresident[] NON_RES_RODATA = "Program is not resident!\n";
+static const char msg_patchstatus_notsupported[] NON_RES_RODATA = "Patch status: not supported by TSR.\n";
+static const char msg_patchstatus_indeterminate[] NON_RES_RODATA = "Patch status: indeterminate.\n";
+static const char msg_patchstatus_needed[] NON_RES_RODATA = "Patch status: needed, flag at %04Xh:%04Xh.\n";
+static const char msg_patchstatus_notneeded[] NON_RES_RODATA = "Patch status: not needed.\n";
+static const char msg_patchstatus_unknown[] NON_RES_RODATA = "Patch status: unknown.\n";
+static const char msg_patched[] NON_RES_RODATA = "Patched the share_installed byte of old FreeDOS kernel to zero.\n";
+static const char msg_patched_itself[] NON_RES_RODATA = "Resident patched the share_installed byte of old FreeDOS kernel to zero.\n";
+static const char msg_filetable[] NON_RES_RODATA = "File table: %u free / %u total, lock table: %u free / %u total\n";
+static const char msg_filetable_disabled[] NON_RES_RODATA = "File table: %u total, lock table: %u total\n";
 #endif
 
 static void usage(void) {
-	PRINT(ERR, msg_usage1);
-	PRINT(ERR, progname);
-	PRINT(ERR, msg_usage2);
+#if defined(__GNUC__)
+	PRINTF(catgets(cat, 0, 4, msg_usage_4), progname);
+#else
+	PRINTF(catgets(cat, 0, 3, msg_usage_3), progname);
+#endif
+	PRINTF(catgets(cat, 0, 1, msg_usage_1));
+	PRINTF(catgets(cat, 0, 2, msg_usage_2));
+#if defined(__GNUC__)
+	PRINTF(catgets(cat, 0, 5, msg_usage_5));
+	PRINTF(catgets(cat, 0, 6, msg_usage_6));
+	PRINTF(catgets(cat, 0, 7, msg_usage_7));
+	PRINTF(catgets(cat, 0, 8, msg_usage_8));
+	PRINTF(catgets(cat, 0, 9, msg_usage_9));
+#endif
+	PRINTF("\n%s", catgets(cat, 0, 0, msg_usage_0));
 }
 
 static void bad_params(void) {
-	PRINT(ERR, progname);
-	PRINT(ERR, msg_badparams);
+	PRINTF(catgets(cat, 1, 0, msg_badparams), progname);
 }
 
 #if defined(__GNUC__)
@@ -836,39 +828,6 @@ static long minimal_atol(const char *s) {
 	return val;
 }
 
-void displaynumber(int handle, uint16_t number) NON_RES_TEXT;
-void displaynumber(int handle, uint16_t number) {
-	char buffer[6];
-	int index = 5;
-	buffer[index--] = 0;
-	do {
-		buffer[index--] = (number % 10) + '0';
-		number /= 10;
-	} while (number);
-	PRINT(handle, &buffer[index + 1]);
-}
-
-void displayhexnumber(int handle, uint16_t number, uint8_t mindigits) NON_RES_TEXT;
-void displayhexnumber(int handle, uint16_t number, uint8_t mindigits) {
-	char buffer[6];
-	char hexit;
-	int index = 5;
-	buffer[index--] = 0;
-	if (mindigits > 4)
-		mindigits = 4;
-	do {
-		hexit = (number % 16);
-		if (hexit < 10)
-			buffer[index--] = hexit + '0';
-		else
-			buffer[index--] = hexit - 10 + 'A';
-		number /= 16;
-		if (mindigits)
-			-- mindigits;
-	} while (number || mindigits);
-	PRINT(handle, &buffer[index + 1]);
-}
-
 typedef struct {
 	uint16_t patchoffset;
 	uint16_t filesize;
@@ -888,45 +847,32 @@ int displaystatus(uint16_t mpx) {
 		mpx = asm_find_resident();
 	}
 	if (mpx & 0xFF00) {
-		PRINT(OUT, msg_notresident);
+		PRINTF(catgets(cat, 2, 0, msg_notresident));
 		return 1;
 	}
 	asm_get_status(mpx, &s);
-	PRINT(OUT, msg_patchstatus);
 	switch (s.patchstatus) {
 	  case 0:
-		PRINT(OUT, msg_patchstatus_notsupported);
+		PRINTF(catgets(cat, 2, 1, msg_patchstatus_notsupported));
 		break;
 	  case 1:
-		PRINT(OUT, msg_patchstatus_indeterminate);
+		PRINTF(catgets(cat, 2, 2, msg_patchstatus_indeterminate));
 		break;
 	  case 2:
-		PRINT(OUT, msg_patchstatus_needed);
-		displayhexnumber(OUT, FP_SEG(getvect(0x31)), 4);
-		PRINT(OUT, msg_patchstatus_needed_2);
-		displayhexnumber(OUT, s.patchoffset, 4);
-		PRINT(OUT, msg_patchstatus_needed_3);
+		PRINTF(catgets(cat, 2, 3, msg_patchstatus_needed), FP_SEG(getvect(0x31)), s.patchoffset);
 		break;
 	  case 3:
-		PRINT(OUT, msg_patchstatus_notneeded);
+		PRINTF(catgets(cat, 2, 4, msg_patchstatus_notneeded));
 		break;
 	  default:
-		PRINT(OUT, msg_patchstatus_unknown);
+		PRINTF(catgets(cat, 2, 5, msg_patchstatus_unknown));
 		break;
 	}
-	PRINT(OUT, msg_filetable);
-	if (s.enable & 1) {
-		displaynumber(OUT, s.filefree);
-		PRINT(OUT, msg_free);
-	}
-	displaynumber(OUT, s.filesize);
-	PRINT(OUT, msg_total_locktable);
-	if (s.enable & 1) {
-		displaynumber(OUT, s.lockfree);
-		PRINT(OUT, msg_free);
-	}
-	displaynumber(OUT, s.locksize);
-	PRINT(OUT, msg_total_eol);
+
+	if (s.enable & 1)
+		PRINTF(catgets(cat, 2, 8, msg_filetable), s.filefree, s.filesize, s.lockfree, s.locksize);
+	else
+		PRINTF(catgets(cat, 2, 9, msg_filetable_disabled), s.filesize, s.locksize);
 	return 0;
 }
 #endif
@@ -951,6 +897,8 @@ int main(int argc, char **argv) {
 #if defined(__GNUC__)
 	file_table_size_bytes = 2048;
 #endif
+
+	cat = catopen("share", 0);
 
 		/* Extract program name from argv[0] into progname. */
 	if (argv[0] != NULL) {
@@ -1067,35 +1015,32 @@ int main(int argc, char **argv) {
 		}
 		rc = asm_uninstall(mpx);
 		if (rc == 0) {
-			PRINT(OUT, progname);
-			PRINT(OUT, msg_removed);
+			PRINTF(catgets(cat, 1, 14, msg_removed), progname);
 			if (2 == s.patchstatus) {
 				if (*share_installed) {
 					*share_installed = 0;
-					PRINT(OUT, msg_patched);
+					PRINTF(catgets(cat, 2, 6, msg_patched));
 				} else if (priorflag) {
-					PRINT(OUT, msg_patched_itself);
+					PRINTF(catgets(cat, 2, 7, msg_patched_itself));
 				}
 			}
 			return 0;
 		}
-		PRINT(ERR, progname);
-		PRINT(ERR, msg_cannotremove);
 		switch (rc) {
 		  case 1:
-			PRINT(ERR, msg_notinstalled);
+			PRINTF(catgets(cat, 1, 14, msg_notinstalled), progname);
 			return 6;
 		  case 2:
-			PRINT(ERR, msg_somefailure);
+			PRINTF(catgets(cat, 1, 15, msg_somefailure), progname);
 			return 7;
 		  case 3:
-			PRINT(ERR, msg_unhookerror);
+			PRINTF(catgets(cat, 1, 17, msg_unhookerror), progname);
 			return 8;
 		  case 4:
-			PRINT(ERR, msg_unhookerrorcritical);
+			PRINTF(catgets(cat, 1, 18, msg_unhookerrorcritical), progname);
 			return 9;
 		  default:
-			PRINT(ERR, msg_unknownerror);
+			PRINTF(catgets(cat, 1, 19, msg_unknownerror), progname);
 			return 10;
 		}
 	}
@@ -1104,56 +1049,47 @@ int main(int argc, char **argv) {
 		if ((mpx & 0xFF00) == 0 && (s.enable & 1) == 0) {
 			/* Found and is disabled. */
 			if (statusrequested || disablerequested) {
-				PRINT(OUT, progname);
-				PRINT(OUT, msg_isinstalleddisabled);
+				PRINTF(catgets(cat, 1, 11, msg_isinstalleddisabled), progname);
 			} else {
 				if (! asm_enable(mpx)) {
-					PRINT(OUT, progname);
-					PRINT(OUT, msg_enabled);
+					PRINTF(catgets(cat, 1, 6, msg_enabled), progname);
 				} else {
-					PRINT(ERR, progname);
-					PRINT(ERR, msg_cannotenable);
+					PRINTF(catgets(cat, 1, 8, msg_cannotenable), progname);
 				}
 				asm_get_status(mpx, &s);
 			}
 		} else if ((mpx & 0xFF00) == 0) {
 			/* Found and is enabled. */
 			if (statusrequested || enablerequested) {
-				PRINT(OUT, progname);
-				PRINT(OUT, msg_isinstalled);
+				PRINTF(catgets(cat, 1, 10, msg_isinstalled), progname);
 			} else if (disablerequested) {
 				if (2 == s.patchstatus) {
 					share_installed = MK_FP(FP_SEG(getvect(0x31)), s.patchoffset);
 					priorflag = *share_installed;
 				}
 				if (! asm_disable(mpx)) {
-					PRINT(OUT, progname);
-					PRINT(OUT, msg_disabled);
+					PRINTF(catgets(cat, 1, 7, msg_disabled), progname);
 					if (2 == s.patchstatus) {
 						if (*share_installed) {
 							*share_installed = 0;
 						}
 						if (priorflag) {
-							PRINT(OUT, msg_patched);
+							PRINTF(catgets(cat, 2, 6, msg_patched));
 						}
 					}
 				} else {
-					PRINT(ERR, progname);
-					PRINT(ERR, msg_cannotdisable);
+					PRINTF(catgets(cat, 1, 9, msg_cannotdisable), progname);
 				}
 				asm_get_status(mpx, &s);
 			} else {
 				if (onlyoptions) {
-					PRINT(OUT, progname);
-					PRINT(OUT, msg_isinstalled);
+					PRINTF(catgets(cat, 1, 10, msg_isinstalled), progname);
 				} else {
-					PRINT(ERR, progname);
-					PRINT(ERR, msg_alreadyinstalled);
+					PRINTF(catgets(cat, 1, 1, msg_alreadyinstalled), progname);
 				}
 			}
 		} else {
-			PRINT(ERR, progname);
-			PRINT(ERR, msg_alreadyinstalled_no_amis);
+			PRINTF(catgets(cat, 1, 5, msg_alreadyinstalled_no_amis), progname);
 		}
 		if (statusrequested) {
 			(void)displaystatus(mpx);
@@ -1162,8 +1098,7 @@ int main(int argc, char **argv) {
 	}
 #else
 	if (installed) {
-		PRINT(ERR, progname);
-		PRINT(ERR, msg_alreadyinstalled);
+		PRINTF(catgets(cat, 1, 1, msg_alreadyinstalled), progname);
 		return 1;
 	}
 
@@ -1172,23 +1107,20 @@ int main(int argc, char **argv) {
 
 #if defined(__GNUC__)
 	if (onlyoptions || disablerequested || enablerequested) {
-		PRINT(ERR, progname);
-		PRINT(ERR, msg_prefixed_notresident);
+		PRINTF(catgets(cat, 1, 20, msg_prefixed_notresident), progname);
 		return 11;
 	}
 #endif
 
 	top_of_tsr = init_tables();
 	if (top_of_tsr == 0) {
-		PRINT(ERR, progname);
-		PRINT(ERR, msg_outofmemory);
+		PRINTF(catgets(cat, 1, 2, msg_outofmemory), progname);
 		return 2;
 	}
 
 	if (FP_SEG(getvect(MUX_INT_NO)) == 0
 		|| FP_OFF(getvect(MUX_INT_NO)) == 0xFFFF) {
-		PRINT(ERR, progname);
-		PRINT(ERR, msg_invalidhandler2f);
+		PRINTF(catgets(cat, 1, 3, msg_invalidhandler2f), progname);
 		return 5;
 	}
 
@@ -1198,8 +1130,7 @@ int main(int argc, char **argv) {
 
 	if (FP_SEG(getvect(0x2D)) == 0
 		|| FP_OFF(getvect(0x2D)) == 0xFFFF) {
-		PRINT(ERR, progname);
-		PRINT(ERR, msg_invalidhandler2d);
+		PRINTF(catgets(cat, 1, 13, msg_invalidhandler2d), progname);
 		return 5;
 	}
 
@@ -1221,8 +1152,7 @@ int main(int argc, char **argv) {
 	    }
 	  }
 	  if (mpx == 256) {
-		PRINT(ERR, progname);
-		PRINT(ERR, msg_nofreeamisnum);
+		PRINTF(catgets(cat, 1, 12, msg_nofreeamisnum), progname);
 		return 4;
 	  }
 	}
@@ -1238,8 +1168,7 @@ int main(int argc, char **argv) {
 	/* enable(); */
 
 		/* Let them know we're installed. */
-	PRINT(OUT, progname);
-	PRINT(OUT, msg_installed);
+	PRINTF(catgets(cat, 1, 4, msg_installed), progname);
 #if defined(__GNUC__)
 	if (statusrequested) {
 		(void)displaystatus(amisnum);
@@ -1257,6 +1186,8 @@ int main(int argc, char **argv) {
 	usfptr = MK_FP(_psp, 0x2c);	/* MK_FP is the counterpart */
 					/* of FP_OFF and FP_SEG ... */
 	freemem(*usfptr);	/* deallocate MCB of ENV segment */
+
+	catclose(cat);
 
 		/* If you run the program with output redirection
 		   such as > NUL then the SFT entries are leaked by
