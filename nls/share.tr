@@ -1,47 +1,47 @@
 #
 # Turkish translation from the English master translation template
 #
-0.0:Sabit diskinize dosya paylaŸm ve kilitleme kabiliyetleri kurar.\n
-0.1:  /F:alan    Bayt olarak dosya paylaŸm verileri i‡in dosya alan atar.\n
-0.2:  /L:kilitler Ayn anda kilitlenebilecek dosya saysn ayarlar.\n
+0.0:Sabit diskinize dosya paylaÅŸÄ±m ve kilitleme kabiliyetleri kurar.\n
+0.1:  /F:alan    Bayt olarak dosya paylaÅŸÄ±mÄ± verileri iÃ§in dosya alanÄ± atar.\n
+0.2:  /L:kilitler AynÄ± anda kilitlenebilecek dosya sayÄ±sÄ±nÄ± ayarlar.\n
 0.3:%s [/F:alan] [/L:kilitler]\n
 0.4:%s [/F:alan] [/L:kilitler] [/U] [/S] [/O] [/D] [/E]\n
-0.5:  /U         YerleŸik bir ”rneklemeyi kaldr.\n
-0.6:  /S         Yama durumu ve tablo boyutlarn g”ster.\n
-0.7:  /O         Sadece zaten yerleŸikse iŸle, kurma.\n
-0.8:  /D         YerleŸik bir ”rneklemeyi devre dŸ brak.\n
-0.9:  /E         YerleŸik bir ”rneklemeyi etkinleŸtir. (Varsaylan.)\n
+0.5:  /U         YerleÅŸik bir Ã¶rneklemeyi kaldÄ±r.\n
+0.6:  /S         Yama durumu ve tablo boyutlarÄ±nÄ± gÃ¶ster.\n
+0.7:  /O         Sadece zaten yerleÅŸikse iÅŸle, kurma.\n
+0.8:  /D         YerleÅŸik bir Ã¶rneklemeyi devre dÄ±ÅŸÄ± bÄ±rak.\n
+0.9:  /E         YerleÅŸik bir Ã¶rneklemeyi etkinleÅŸtir. (VarsayÄ±lan.)\n
 
-1.0:%s: parametre aralk dŸ!\n
+1.0:%s: parametre aralÄ±k dÄ±ÅŸÄ±!\n
 1.1:%s: zaten kurulu!\n
 1.2:%s: yetersiz bellek!\n
-1.3:%s: ge‡ersiz 2Fh kesme y”neticisi!\n
+1.3:%s: geÃ§ersiz 2Fh kesme yÃ¶neticisi!\n
 1.4:%s: kuruldu.\n
 
-1.5:%s: zaten kurulu, fakat AMIS kesmesinde bulunamad!\n
-1.6:%s: etkinleŸtirilmiŸ.\n
-1.7:%s: devre dŸ braklmŸ.\n
-1.8:%s: etkinleŸtirilemez, TSR srmn kontrol edin.\n
-1.9:%s: devre dŸ braklamaz, TSR srmn kontrol edin.\n
-1.10:%s: yerleŸik olarak kurulu.\n
-1.11:%s: yerleŸik olarak kurulu, fakat gncel olarak devre dŸ.\n
-1.12:%s: boŸ AMIS multipleks numaras yok!\n
-1.13:%s: ge‡ersiz 2Dh kesme y”neticisi!\n
-1.14:%s: kaldrld.\n
-1.15:%s: kaldrlamaz, henz kurulu de§il.\n
-1.16:%s: kaldrlamaz, bir baŸarszlk meydana geldi.\n
-1.17:%s: kaldrlamaz, iŸleyiciler AMIS uyumsuz olarak ba§land.\n
-1.18:%s: kaldrlamaz, dahili ba§ kaldrma hatas.\n
-1.19:%s: kaldrlamaz, bilinmeyen hata.\n
-1.20:%s: program yerleŸik de§il!\n
+1.5:%s: zaten kurulu, fakat AMIS kesmesinde bulunamadÄ±!\n
+1.6:%s: etkinleÅŸtirilmiÅŸ.\n
+1.7:%s: devre dÄ±ÅŸÄ± bÄ±rakÄ±lmÄ±ÅŸ.\n
+1.8:%s: etkinleÅŸtirilemez, TSR sÃ¼rÃ¼mÃ¼nÃ¼ kontrol edin.\n
+1.9:%s: devre dÄ±ÅŸÄ± bÄ±rakÄ±lamaz, TSR sÃ¼rÃ¼mÃ¼nÃ¼ kontrol edin.\n
+1.10:%s: yerleÅŸik olarak kurulu.\n
+1.11:%s: yerleÅŸik olarak kurulu, fakat gÃ¼ncel olarak devre dÄ±ÅŸÄ±.\n
+1.12:%s: boÅŸ AMIS multipleks numarasÄ± yok!\n
+1.13:%s: geÃ§ersiz 2Dh kesme yÃ¶neticisi!\n
+1.14:%s: kaldÄ±rÄ±ldÄ±.\n
+1.15:%s: kaldÄ±rÄ±lamaz, henÃ¼z kurulu deÄŸil.\n
+1.16:%s: kaldÄ±rÄ±lamaz, bir baÅŸarÄ±sÄ±zlÄ±k meydana geldi.\n
+1.17:%s: kaldÄ±rÄ±lamaz, iÅŸleyiciler AMIS uyumsuz olarak baÄŸlandÄ±.\n
+1.18:%s: kaldÄ±rÄ±lamaz, dahili baÄŸ kaldÄ±rma hatasÄ±.\n
+1.19:%s: kaldÄ±rÄ±lamaz, bilinmeyen hata.\n
+1.20:%s: program yerleÅŸik deÄŸil!\n
 
-2.0:Program yerleŸik de§il!\n
-2.1:Yama durumu: TSR tarafndan desteklenmiyor.\n
+2.0:Program yerleÅŸik deÄŸil!\n
+2.1:Yama durumu: TSR tarafÄ±ndan desteklenmiyor.\n
 2.2:Yama durumu: belirsiz.\n
-2.3:Yama durumu: gerekli, bayrak Ÿurada: %04Xh:%04Xh.\n
+2.3:Yama durumu: gerekli, bayrak ÅŸurada: %04Xh:%04Xh.\n
 2.4:Yama durumu: gereksiz.\n
 2.5:Yama durumu: bilinmiyor.\n
-2.6:Eski FreeDOS ‡ekirde§inin share_installed bayt sfr olarak yamaland.\n
-2.7:YerleŸik eski ‡ekirde§in share_installed baytn sfr olarak yamalad.\n
-2.8:Dosya tablosu: %u boŸ / %u toplam, kilit tablosu: %u boŸ / %u toplam\n
+2.6:Eski FreeDOS Ã§ekirdeÄŸinin share_installed baytÄ± sÄ±fÄ±r olarak yamalandÄ±.\n
+2.7:YerleÅŸik eski Ã§ekirdeÄŸin share_installed baytÄ±nÄ± sÄ±fÄ±r olarak yamaladÄ±.\n
+2.8:Dosya tablosu: %u boÅŸ / %u toplam, kilit tablosu: %u boÅŸ / %u toplam\n
 2.9:Dosya tablosu: %u toplam, kilit tablosu: %u toplam\n
