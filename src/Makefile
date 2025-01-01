@@ -21,8 +21,16 @@ endif
 share.obj: share.c
 	$(CC) $(CFLAGS)$@ $^
 
+ifeq "$(COMPILER)" "gcc"
 gcc_help.obj: gcc_help.asm
 	nasm -f elf -I ../lmacros/ -I lmacros/ $< -o $@
+else
+kitten.obj: ../kitten/kitten.c
+	$(CC) $(CFLAGS)$@ $^
+
+tnyprntf.obj: ../tnyprntf/tnyprntf.c
+	$(CC) $(CFLAGS)$@ $^
+endif
 
 share.com: share.obj $(EXTRA_OBJS)
 	$(LD) $(LDFLAGS)
