@@ -22,9 +22,12 @@ share.obj: share.c
 	$(CC) $(CFLAGS)$@ $^
 
 ifeq "$(COMPILER)" "gcc"
-gcc_help.obj: gcc_help.asm
+amishelp.obj: amishelp.asm
 	nasm -f elf -I ../lmacros/ -I lmacros/ $< -o $@
 else
+amishelp.obj: amishelp.asm
+	nasm -f obj -I ../lmacros/ -I lmacros/ $< -o $@
+
 kitten.obj: ../kitten/kitten.c
 	$(CC) $(CFLAGS)$@ $^
 
@@ -32,7 +35,7 @@ tnyprntf.obj: ../tnyprntf/tnyprntf.c
 	$(CC) $(CFLAGS)$@ $^
 endif
 
-share.com: share.obj $(EXTRA_OBJS)
+share.com: share.obj amishelp.obj $(EXTRA_OBJS)
 	$(LD) $(LDFLAGS)
 	$(UPXARGS) $@
 
