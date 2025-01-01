@@ -35,7 +35,7 @@ tnyprntf.obj: ../tnyprntf/tnyprntf.c
 	$(CC) $(CFLAGS)$@ $^
 endif
 
-share.com: share.obj amishelp.obj $(EXTRA_OBJS)
+share.com: share.obj $(EXTRA_OBJS)
 	$(LD) $(LDFLAGS)
 	$(UPXARGS) $@
 
