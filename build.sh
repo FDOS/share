@@ -3,7 +3,7 @@
 if [ x"${COMPILER}" = "xgcc" ] ; then
   export CC="ia16-elf-gcc"
   export CFLAGS="-mtsr -Wall -fpack-struct -mcmodel=tiny -c -Os -o"
-  export EXTRA_OBJS="gcc_help.obj"
+  export EXTRA_OBJS="amishelp.obj"
   export LD="ia16-elf-gcc"
   export LDFLAGS="-mtsr share.obj \${EXTRA_OBJS} -o share.com -li86 -Wl,-Map=share.map"
 
