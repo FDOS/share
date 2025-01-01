@@ -1164,13 +1164,13 @@ int main(int argc, char **argv) {
 	setvect(0x2D, i2D_handler);
 #endif
 	old_handler2f = getvect(MUX_INT_NO);
-#if 0 /* causes relocations when built with Turbo C/C++ 3 */
-	setvect(MUX_INT_NO,handler2f);
-#else
+#if defined(__TURBOC__) && (__TURBOC__ >= 0x0300)
 	{
 		void (near *isr)() = FP_OFF(handler2f);
 		setvect(MUX_INT_NO,(void (interrupt far *)())MK_FP(_DS,isr));
 	}
+#else /* causes relocations when built with Turbo C/C++ 3 */
+	setvect(MUX_INT_NO,handler2f);
 #endif
 	/* enable(); */
 
