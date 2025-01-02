@@ -294,6 +294,23 @@ static void interrupt far handler2f(intregs_t iregs) {
 	/* nasm -fobj -o foo.obj foo.asm ... */
 
 #elif defined(__GNUC__) || defined(__WATCOMC__)
+
+#if defined(__WATCOMC__)
+#pragma aux (__gcc16) i2D_next
+#pragma aux (__gcc16) i2D_handler
+
+#pragma aux amisnum "*"
+#pragma aux (__gcc16) asm_find_resident
+#pragma aux (__gcc16) asm_uninstall
+#pragma aux (__gcc16) asm_enable
+#pragma aux (__gcc16) asm_disable
+#pragma aux (__gcc16) asm_init
+
+#pragma aux (__gcc16) asm_get_status
+
+#pragma aux top_of_stack "*"
+#endif
+
 /* Within IBM Interrupt Sharing Protocol header */
 extern void __far __interrupt (*i2D_next)(void);
 /* Prototype for NASM interrupt handler function */
@@ -403,7 +420,7 @@ static void remove_all_locks(int fileno) {
 		lptr = &lock_table[i];
 		if (lptr->used && lptr->fileno == fileno) {
 			lptr->used = 0;
-#if defined(__GNUC__)
+#if defined(__GNUC__) || defined(__WATCOMC__)
 			++ lock_table_free;
 #endif
 		}
@@ -412,7 +429,7 @@ static void remove_all_locks(int fileno) {
 
 static void free_file_table_entry(int fileno) {
 	file_table[fileno].filename[0] = '\0';
-#if defined(__GNUC__)
+#if defined(__GNUC__) || defined(__WATCOMC__)
 	++ file_table_free;
 #endif
 }
@@ -557,7 +574,7 @@ static int open_check
 	for (i = 0; i < sizeof(fptr->filename); i++) {
 		if ((fptr->filename[i] = filename[i]) == '\0') break;
 	}
-#if defined(__GNUC__)
+#if defined(__GNUC__) || defined(__WATCOMC__)
 	-- file_table_free;
 #endif
 	fptr->psp = psp;
@@ -666,7 +683,7 @@ static int lock_unlock
 				&& (lptr->start == ofs)
 				&& (lptr->end == endofs)   ) {
 				lptr->used = 0;
-#if defined(__GNUC__)
+#if defined(__GNUC__) || defined(__WATCOMC__)
 				++ lock_table_free;
 #endif
 				return 0;
@@ -687,7 +704,7 @@ static int lock_unlock
 				lptr->end = ofs+(unsigned long)len;
 				lptr->fileno = fileno;
 				lptr->psp = psp;
-#if defined(__GNUC__)
+#if defined(__GNUC__) || defined(__WATCOMC__)
 				-- lock_table_free;
 #endif
 				return 0;
@@ -771,7 +788,7 @@ unsigned short init_tables(void) {
 	return paras;
 }
 
-#if !defined(__GNUC__)
+#if defined(__TURBOC__)
 static const char msg_usage_3[] NON_RES_RODATA = "%s [/F:space] [/L:locks]\n";
 #else
 static const char msg_usage_4[] NON_RES_RODATA = "%s [/F:space] [/L:locks] [/U] [/S] [/O] [/D] [/E]\n";
@@ -791,7 +808,7 @@ static const char msg_outofmemory[] NON_RES_RODATA = "%s: out of memory!\n";
 static const char msg_invalidhandler2f[] NON_RES_RODATA = "%s: invalid interrupt 2Fh handler!\n";
 static const char msg_installed[] NON_RES_RODATA = "%s: installed.\n";
 
-#if defined(__GNUC__)
+#if defined(__GNUC__) || defined(__WATCOMC__)
 static const char msg_alreadyinstalled_no_amis[] NON_RES_RODATA = "%s: is already installed, but not found on AMIS interrupt!\n";
 static const char msg_enabled[] NON_RES_RODATA = "%s: enabled.\n";
 static const char msg_disabled[] NON_RES_RODATA = "%s: disabled.\n";
@@ -822,14 +839,14 @@ static const char msg_filetable_disabled[] NON_RES_RODATA = "File table: %u tota
 #endif
 
 static void usage(void) {
-#if defined(__GNUC__)
+#if defined(__GNUC__) || defined(__WATCOMC__)
 	PRINTF(catgets(cat, 0, 4, msg_usage_4), progname);
 #else
 	PRINTF(catgets(cat, 0, 3, msg_usage_3), progname);
 #endif
 	PRINTF(catgets(cat, 0, 1, msg_usage_1));
 	PRINTF(catgets(cat, 0, 2, msg_usage_2));
-#if defined(__GNUC__)
+#if defined(__GNUC__) || defined(__WATCOMC__)
 	PRINTF(catgets(cat, 0, 5, msg_usage_5));
 	PRINTF(catgets(cat, 0, 6, msg_usage_6));
 	PRINTF(catgets(cat, 0, 7, msg_usage_7));
@@ -843,7 +860,7 @@ static void bad_params(void) {
 	PRINTF(catgets(cat, 1, 0, msg_badparams), progname);
 }
 
-#if defined(__GNUC__)
+#if defined(__GNUC__) || defined(__WATCOMC__)
 /* Naive implementation of atol(), only decimal digits allowed, no signs */
 static long minimal_atol(const char *s) NON_RES_TEXT;
 static long minimal_atol(const char *s) {
@@ -916,7 +933,7 @@ int main(int argc, char **argv) {
 	unsigned short far *usfptr;
 	unsigned short top_of_tsr;
 	int installed = 0;
-#if defined(__GNUC__)
+#if defined(__GNUC__) || defined(__WATCOMC__)
 	status_struct s;
 	uint8_t far * share_installed = NULL;
 	uint8_t priorflag = 0;
@@ -928,7 +945,7 @@ int main(int argc, char **argv) {
 	int i;
 	uint8_t ii;
 
-#if defined(__GNUC__)
+#if defined(__GNUC__) || defined(__WATCOMC__)
 	file_table_size_bytes = 2048;
 #endif
 
@@ -978,7 +995,7 @@ int main(int argc, char **argv) {
 		case '?':
 			usage();
 			return 3;
-#if defined(__GNUC__)
+#if defined(__GNUC__) || defined(__WATCOMC__)
 		case 'u':
 		case 'U':
 		case 'r':
@@ -1037,7 +1054,7 @@ int main(int argc, char **argv) {
 		}
 	}
 
-#if defined(__GNUC__)
+#if defined(__GNUC__) || defined(__WATCOMC__)
 	(void)asm_init();
 	mpx = asm_find_resident();
 	asm_get_status(mpx, &s);
@@ -1139,7 +1156,7 @@ int main(int argc, char **argv) {
 		/* Now try to install. */
 #endif
 
-#if defined(__GNUC__)
+#if defined(__GNUC__) || defined(__WATCOMC__)
 	if (onlyoptions || disablerequested || enablerequested) {
 		PRINTF(catgets(cat, 1, 20, msg_prefixed_notresident), progname);
 		return 11;
@@ -1158,7 +1175,7 @@ int main(int argc, char **argv) {
 		return 5;
 	}
 
-#if defined(__GNUC__)
+#if defined(__GNUC__) || defined(__WATCOMC__)
 	top_of_tsr += 4; // Add 64 bytes for stack
 	top_of_stack = (top_of_tsr << 4);
 
@@ -1195,7 +1212,7 @@ int main(int argc, char **argv) {
 		/* Hook the interrupt for the handler routine. */
 	/* disable(); */
 	i2D_next = getvect(0x2D);
-	setvect(0x2D, i2D_handler);
+	setvect(0x2D, i2D_handler);  /* TODO this causes relocation on TC & OW */
 #endif
 	old_handler2f = getvect(MUX_INT_NO);
 #if defined(__TURBOC__) && (__TURBOC__ >= 0x0300)
@@ -1212,7 +1229,7 @@ int main(int argc, char **argv) {
 
 		/* Let them know we're installed. */
 	PRINTF(catgets(cat, 1, 4, msg_installed), progname);
-#if defined(__GNUC__)
+#if defined(__GNUC__) || defined(__WATCOMC__)
 	if (statusrequested) {
 		(void)displaystatus(amisnum);
 	}
