@@ -18,6 +18,14 @@ ECHO.
 ECHO Note: ensure UPX is in your path, optionally make in C:\bin
 goto end
 
+:clean
+%MAKE% -C src RM=del clean
+goto end
+
+:clobber
+%MAKE% -C src RM=del clobber
+goto end
+
 :tcc2
 rem ############# Turbo C 2.01 ########################
 IF [%BASEPATH%]==[] set BASEPATH=C:\tc201
@@ -33,17 +41,25 @@ goto tcshared
 
 :tcshared
 rem ############# TURBO_C shared ########################
-set LIBS=%BASEPATH%\lib
-set INCLUDE=%BASEPATH%/include
 set CC=tcc
 set LD=tlink
-set LDFLAGS=/m /s /c /t $(LIBS)\c0t.obj $(EXTRA_OBJS) share.obj,share.com,,$(LIBS)\cs.lib
-set CFLAGS=-I../kitten -I../tnyprntf -I%INCLUDE% -mt -1 -c -o
+set LDFLAGS=/m /s /c /t %BASEPATH%\lib\c0t.obj $(EXTRA_OBJS) share.obj,share.com,,%BASEPATH%\lib\cs.lib
+set CFLAGS=-I../kitten -I../tnyprntf -I%BASEPATH%/include -mt -1 -c -o
+set EXTRA_OBJS=
 goto doit
 
-:doit
-set EXTRA_OBJS=
+:ow
+IF [%BASEPATH%]==[] set BASEPATH=D:\ow19
+set CC=wcc
+set LD=wlink
+::set LDFLAGS=@share.lnk
+set LDFLAGS=system com name share.com file share,kitten,tnyprntf,amishelp option quiet,map,statics,verbose,artificial,symfile
+set CFLAGS=-I..\kitten -I..\tnyprntf -q -0 -ms -btdos -os -fo=
+set EXTRA_OBJS=amishelp.obj
+goto doit
 
+
+:doit
 set EXTRA_OBJS=%EXTRA_OBJS% kitten.obj
 rem # if you want to build without kitten comment the above and uncomment
 rem the following
@@ -70,8 +86,6 @@ rem cleanup
 set PATH=%OLD_PATH%
 set MAKE=
 set BASEPATH=
-set INCLUDE=
-set LIBS=
 set CC=
 set CFLAGS=
 set LD=

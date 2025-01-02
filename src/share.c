@@ -11,7 +11,7 @@
 			/* freemem, keep */
 #include <string.h>	/* strchr, strlen, memset */
 
-#ifdef __TURBOC__
+#if defined(__TURBOC__) || (__WATCOMC__)
 #include <io.h>		/* write (what else?) */
 #include <stdlib.h>	/* _psp, NULL, malloc, free, atol */
 #define NON_RES_TEXT
@@ -20,6 +20,16 @@
 #define NON_RES_BSS
 typedef unsigned char uint8_t;
 typedef unsigned short uint16_t;
+
+#if (__WATCOMC__)
+//void far * getvect(unsigned char intno);
+//void setvect(unsigned char intno, void far * vector);
+#define getvect(x) _dos_getvect(x)
+#define setvect(x, y) _dos_setvect(x, y)
+#define freemem(x) _dos_freemem(x)
+#define keep(x, y) _dos_keep(x, y)
+#define __attribute__(x)
+#endif
 
 #elif defined(__GNUC__)
 #include <libi86/stdlib.h>
@@ -156,7 +166,31 @@ typedef struct {
 
 		/* ------------- GLOBALS ------------- */
 static char progname[9] NON_RES_BSS;
-#if defined(__GNUC__)
+#if defined (__WATCOMC__)
+#pragma aux file_table_size "*"
+#pragma aux file_table_size_bytes "*"
+#pragma aux file_table_free "*"
+#pragma aux file_table_offset "*"
+#pragma aux lock_table_size "*"
+#pragma aux lock_table_size_bytes "*"
+#pragma aux lock_table_free "*"
+#pragma aux lock_table_offset "*"
+#pragma aux iregs "*"
+
+#pragma aux need_to_chain "*"
+
+#pragma aux old_handler2f "*"
+#pragma aux handler2f "*"
+
+/* same as __cdecl except don't preceed with _ underscore */
+#pragma aux __gcc16 "*" \
+__parm __caller [] \
+__value __struct __float __struct __routine [__ax] \
+__modify [__ax __bx __cx __dx __es]
+#pragma aux (__gcc16) inner_handler
+
+#endif
+#if defined(__GNUC__) || defined(__WATCOMC__)
 extern uint16_t file_table_size;	/* # of file_t we can have */
 extern uint16_t file_table_size_bytes;	/* amount bytes */
 extern uint16_t file_table_free;
@@ -259,7 +293,7 @@ static void interrupt far handler2f(intregs_t iregs) {
 	/* would have been better to link a NASM handler core: */
 	/* nasm -fobj -o foo.obj foo.asm ... */
 
-#elif defined(__GNUC__)
+#elif defined(__GNUC__) || defined(__WATCOMC__)
 /* Within IBM Interrupt Sharing Protocol header */
 extern void __far __interrupt (*i2D_next)(void);
 /* Prototype for NASM interrupt handler function */
@@ -356,7 +390,7 @@ void inner_handler(void) {
 		/* Chain to the next handler. */
 #if defined(__TURBOC__)
 	chain_old_handler2f;
-#elif defined(__GNUC__)
+#elif defined(__GNUC__) || defined(__WATCOMC__)
 	need_to_chain = 1;
 #endif
 }
@@ -1169,7 +1203,9 @@ int main(int argc, char **argv) {
 		void (near *isr)() = FP_OFF(handler2f);
 		setvect(MUX_INT_NO,(void (interrupt far *)())MK_FP(_DS,isr));
 	}
-#else /* causes relocations when built with Turbo C/C++ 3 */
+#elif defined(__WATCOMC__)
+	setvect(MUX_INT_NO,handler2f); // TODO get handler2f without relocation 
+#else /* causes relocations when built with Turbo C/C++ 3 and OW */
 	setvect(MUX_INT_NO,handler2f);
 #endif
 	/* enable(); */

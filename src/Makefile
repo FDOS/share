@@ -28,10 +28,10 @@ else
 amishelp.obj: amishelp.asm
 	nasm -f obj -I ../lmacros/ -I lmacros/ $< -o $@
 
-kitten.obj: ../kitten/kitten.c
+kitten.obj: ..\kitten\kitten.c
 	$(CC) $(CFLAGS)$@ $^
 
-tnyprntf.obj: ../tnyprntf/tnyprntf.c
+tnyprntf.obj: ..\tnyprntf\tnyprntf.c
 	$(CC) $(CFLAGS)$@ $^
 endif
 
