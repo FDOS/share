@@ -14,6 +14,7 @@
 #if defined(__TURBOC__) || (__WATCOMC__)
 #include <io.h>		/* write (what else?) */
 #include <stdlib.h>	/* _psp, NULL, malloc, free, atol */
+#include <stdio.h> /* printf */
 #define NON_RES_TEXT
 #define NON_RES_DATA
 #define NON_RES_RODATA
@@ -22,6 +23,7 @@ typedef unsigned char uint8_t;
 typedef unsigned short uint16_t;
 
 #if (__WATCOMC__)
+#pragma pack (1)  /* structures are packed */
 //void far * getvect(unsigned char intno);
 //void setvect(unsigned char intno, void far * vector);
 #define getvect(x) _dos_getvect(x)
@@ -182,11 +184,15 @@ static char progname[9] NON_RES_BSS;
 #pragma aux old_handler2f "*"
 #pragma aux handler2f "*"
 
-/* same as __cdecl except don't preceed with _ underscore */
+/* gcc-ia16 version of __cdecl, similar to OW except don't preceed with _ underscore & doesn't modify __es 
+   __caller [] -- all arguments are passed on the stack, caller pops off on return
+   __value ... -- return result in __ax
+   __modify [__ax __bx __cx __dx] -- may be modified, all other registers unchanged
+*/
 #pragma aux __gcc16 "*" \
 __parm __caller [] \
 __value __struct __float __struct __routine [__ax] \
-__modify [__ax __bx __cx __dx __es]
+__modify [__ax __bx __cx __dx]
 #pragma aux (__gcc16) inner_handler
 
 #endif
@@ -200,9 +206,16 @@ extern uint16_t lock_table_size_bytes;	/* amount bytes */
 extern uint16_t lock_table_free;
 extern uint16_t lock_table_offset;
 #else
-static unsigned int file_table_size_bytes NON_RES_DATA = 2048;
 uint16_t file_table_size = 0;		/* # of file_t we can have */
 uint16_t lock_table_size = 20;		/* # of lock_t we can have */
+
+uint16_t file_table_size_bytes;	/* amount bytes */
+uint16_t file_table_free;
+uint16_t file_table_offset;
+uint16_t lock_table_size_bytes;	/* amount bytes */
+uint16_t lock_table_free;
+uint16_t lock_table_offset;
+
 #endif
 static file_t *file_table = NULL;
 static lock_t *lock_table = NULL;
@@ -733,35 +746,6 @@ static int is_file_open(char far *filename)
 unsigned short init_tables(void) {
 	unsigned short paras;
 	char far *fptr;
-#if defined(__TURBOC__)
-	char *onebyte;
-
-	file_table_size = file_table_size_bytes / sizeof(file_t);
-	if ((file_table = malloc(file_table_size_bytes)) == NULL)
-		return 0;
-	memset(file_table, 0, file_table_size_bytes);
-
-	if ((lock_table = malloc(lock_table_size * sizeof(lock_t))) == NULL) {
-		free(file_table);
-		file_table = NULL;
-		return 0;
-	}
-	memset(lock_table, 0, lock_table_size * sizeof(lock_t));
-
-	/* Allocate a single byte.  This tells us the size of the TSR.
-	   Free the byte when we know the address. */
-	onebyte = malloc(1);
-	if (onebyte == NULL) {
-		free(file_table);
-		file_table = NULL;
-		free(lock_table);
-		lock_table = NULL;
-		return 0;
-	}
-	fptr = (char far *)onebyte;
-	free(onebyte);
-
-#else /* GNUC */
 	char *p;
 
 	file_table_size = file_table_size_bytes / sizeof(file_t);
@@ -769,14 +753,30 @@ unsigned short init_tables(void) {
 	file_table_free = file_table_size;
 	lock_table_free = lock_table_size;
 
-	p = sbrk(file_table_size_bytes + lock_table_size_bytes);
-	if (p == (void *)-1)
+	if ((p = malloc(file_table_size_bytes + lock_table_size_bytes)) == NULL)
 		return 0;
-
-	// No need to memset() as sbrk() does it for us
+	memset(p, 0, file_table_size_bytes + lock_table_size_bytes);
 
 	file_table = (void *)p;
 	lock_table = (void *)(p + file_table_size_bytes);
+
+#if defined(__TURBOC__)
+	{
+	char *onebyte;
+
+	/* Allocate a single byte.  This tells us the size of the TSR.
+	   Free the byte when we know the address. */
+	onebyte = malloc(1);
+	if (onebyte == NULL) {
+		free(p);
+		file_table = NULL;
+		lock_table = NULL;
+		return 0;
+	}
+	fptr = (char far *)onebyte;
+	free(onebyte);
+	}
+#else /* GNUC */
 	file_table_offset = (uint16_t)file_table;
 	lock_table_offset = (uint16_t)lock_table;
 
@@ -945,9 +945,7 @@ int main(int argc, char **argv) {
 	int i;
 	uint8_t ii;
 
-#if defined(__GNUC__) || defined(__WATCOMC__)
 	file_table_size_bytes = 2048;
-#endif
 
 	cat = catopen("share", 0);
 
@@ -1212,16 +1210,22 @@ int main(int argc, char **argv) {
 		/* Hook the interrupt for the handler routine. */
 	/* disable(); */
 	i2D_next = getvect(0x2D);
-	setvect(0x2D, i2D_handler);  /* TODO this causes relocation on TC & OW */
+#if defined(__WATCOMC__)
+	printf("cs=ds=_psp=%04x : i2D_handler=%04x\n", _psp, FP_OFF((void near *)i2D_handler));
+	/* Note: in tiny memory model, _psp == cs == ds */
+	setvect(0x2D, MK_FP(_psp, FP_OFF((void near *)i2D_handler)));
+#else
+	setvect(0x2D, i2D_handler);  /* this causes relocation on TC & OW */
+#endif
 #endif
 	old_handler2f = getvect(MUX_INT_NO);
-#if defined(__TURBOC__) && (__TURBOC__ >= 0x0300)
+#if (defined(__TURBOC__) && (__TURBOC__ >= 0x0300))
 	{
 		void (near *isr)() = FP_OFF(handler2f);
 		setvect(MUX_INT_NO,(void (interrupt far *)())MK_FP(_DS,isr));
 	}
 #elif defined(__WATCOMC__)
-	setvect(MUX_INT_NO,handler2f); // TODO get handler2f without relocation 
+	setvect(MUX_INT_NO,MK_FP(_psp, FP_OFF((void near *)handler2f))); 
 #else /* causes relocations when built with Turbo C/C++ 3 and OW */
 	setvect(MUX_INT_NO,handler2f);
 #endif

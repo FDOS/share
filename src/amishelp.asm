@@ -4,7 +4,17 @@ bits 16
 
 cpu 8086
 
+
+%ifdef __WATCOM__
+ group DGROUP _TEXT _DATA _TEXT_STARTUP _BSS _bss_startup
+ section _TEXT CLASS=CODE
+ section _DATA class=DATA
+ section _TEXT_STARTUP CLASS=CODE
+ section _BSS class=BSS
+%else
 section .bss
+%endif
+
 
 global iregs
 iregs:
@@ -34,7 +44,11 @@ old_ss:
 old_sp:
 	resw 1
 
+%ifdef __WATCOM__
+ section _TEXT
+%else
 section .text
+%endif
 
 
 %if 0
@@ -185,14 +199,26 @@ ctrl1:
 
 
 %if _SUPPORTGENERALUNINSTALLER
- section .text
+ %ifdef __WATCOM__
+  section _TEXT
+ %else
+  section .text
+ %endif
 %else
- section .data.startup
+ %ifdef __WATCOM__
+  section _DATA
+ %else
+  section .data.startup
+ %endif
 %endif
 sft_size:	dw 0
 
 
+%ifdef __WATCOM__
+ section _TEXT
+%else
  section .text
+%endif
 
 i2D.uninstall:
 %if _SUPPORTGENERALUNINSTALLER
@@ -304,7 +330,12 @@ amisnum equ $-1				; AMIS multiplex number (data for cmp opcode)
 	jmp short .iret_dx_cs
 
 
+%ifdef __WATCOM__
+ section _TEXT_STARTUP
+%else
 section .text.startup
+%endif
+
 
 global asm_find_resident
 asm_find_resident:
@@ -1140,13 +1171,21 @@ SearchIISPChain:
 	retn
 
 
+%ifdef __WATCOM__
+ section _DATA
+%else
 section .data.startup
+%endif
 	align 2, db 0
 debuggeramissig:
 .ven:	fill 8,32,db "ecm"	; vendor
 .prod:	fill 8,32,db "lDebug"	; product
 
+%ifdef __WATCOM__
+ section _bss_startup nobits class DATA
+%else
 section .bss.startup nobits
+%endif
 	alignb 2
 debuggerfunction:
 		resw 1				; = 0 if unused
@@ -1158,7 +1197,11 @@ End of C. Masloch TSR example code
 %endif
 
 
+%ifdef __WATCOM__
+ section _TEXT
+%else
 section .text
+%endif
 
 extern inner_handler
 
@@ -1353,9 +1396,17 @@ seq_setting:
 
 
 %if _SUPPORTGENERALUNINSTALLER
- section .text
+ %ifdef __WATCOM__
+  section _TEXT
+ %else
+  section .text
+ %endif
 %else
- section .text.startup
+ %ifdef __WATCOM__
+  section _TEXT_STARTUP
+ %else
+  section .text.startup
+ %endif
 %endif
 
 clear_sft_shroff:

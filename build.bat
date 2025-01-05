@@ -54,7 +54,9 @@ set CC=wcc
 set LD=wlink
 ::set LDFLAGS=@share.lnk
 set LDFLAGS=system com name share.com file share,kitten,tnyprntf,amishelp option quiet,map,statics,verbose,artificial,symfile
-set CFLAGS=-I..\kitten -I..\tnyprntf -q -0 -ms -btdos -os -fo=
+::set LDFLAGS=system dos name share.com file share,kitten,tnyprntf,amishelp option quiet,map,statics,verbose,artificial,symfile
+set CFLAGS=-I..\kitten -I..\tnyprntf -q -0 -ms -btdos -s -os -d3 -fo=
+set ASMFLAGS=-D__WATCOM__
 set EXTRA_OBJS=amishelp.obj
 goto doit
 
@@ -77,6 +79,7 @@ rem if you use UPX: then options are
 rem     --8086 for 8086 compatibility
 rem   or
 rem     --best for smallest
+::set UPXARGS=-rem 
 
 rem We use GNU make for all targets
 %MAKE% -C src
@@ -88,6 +91,7 @@ set MAKE=
 set BASEPATH=
 set CC=
 set CFLAGS=
+set ASMFLAGS=
 set LD=
 set LDFLAGS=
 set EXTRA_OBJS=

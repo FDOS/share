@@ -22,11 +22,11 @@ share.obj: share.c
 	$(CC) $(CFLAGS)$@ $^
 
 ifeq "$(COMPILER)" "gcc"
-amishelp.obj: amishelp.asm
+amishelp.obj: amishelp.asm amis.mac
 	nasm -f elf -I ../lmacros/ -I lmacros/ $< -o $@
 else
-amishelp.obj: amishelp.asm
-	nasm -f obj -I ../lmacros/ -I lmacros/ $< -o $@
+amishelp.obj: amishelp.asm amis.mac
+	nasm -f obj -I ../lmacros/ -I lmacros/ $(ASMFLAGS) $< -o $@
 
 kitten.obj: ..\kitten\kitten.c
 	$(CC) $(CFLAGS)$@ $^
