@@ -825,7 +825,10 @@ static const char msg_unhookerror[] NON_RES_RODATA = "%s: cannot remove, handler
 static const char msg_unhookerrorcritical[] NON_RES_RODATA = "%s: cannot remove, internal unhook error.\n";
 static const char msg_unknownerror[] NON_RES_RODATA = "%s: cannot remove, unknown error.\n";
 static const char msg_prefixed_notresident[] NON_RES_RODATA = "%s: program is not resident!\n";
+#endif
+static const char msg_failedfreeenv[] NON_RES_RODATA = "%s: failed to free environment block.\n";
 
+#if defined(__GNUC__) || defined(__WATCOMC__)
 static const char msg_notresident[] NON_RES_RODATA = "Program is not resident!\n";
 static const char msg_patchstatus_notsupported[] NON_RES_RODATA = "Patch status: not supported by TSR.\n";
 static const char msg_patchstatus_indeterminate[] NON_RES_RODATA = "Patch status: indeterminate.\n";
@@ -928,9 +931,28 @@ int displaystatus(uint16_t mpx) {
 }
 #endif
 
+/* using pointer in psp, free environment block to avoid leaking DOS memory */
+static void free_environment(void)
+{
+	unsigned short far *p_env_seg;
+	unsigned short env_seg;
+	/* get a pointer to psp at offset 0x2c, value is segment of environment block */
+	p_env_seg = (unsigned short far *)MK_FP(_psp, 0x2c);
+	env_seg = *p_env_seg;
+	/* validate an environment block is allocated, if so attempt to free it */
+	if (env_seg) {
+		if (freemem(env_seg) == 0) { /* attempt to deallocate MCB of ENV segment */
+			/* if successful, clear field in PSP */
+			*p_env_seg = 0;
+		} else {
+			PRINTF(catgets(cat, 1, 21, msg_failedfreeenv), progname);
+		}
+	}
+}
+
+
 		/* ------------- MAIN ------------- */
 int main(int argc, char **argv) {
-	unsigned short far *usfptr;
 	unsigned short top_of_tsr;
 	int installed = 0;
 #if defined(__GNUC__) || defined(__WATCOMC__)
@@ -1246,10 +1268,7 @@ int main(int argc, char **argv) {
 		/* TSR were removed from memory and we did  */
 		/* not do this, we would not be able to     */
 		/* recover this memory.                     */
-
-	usfptr = MK_FP(_psp, 0x2c);	/* MK_FP is the counterpart */
-					/* of FP_OFF and FP_SEG ... */
-	freemem(*usfptr);	/* deallocate MCB of ENV segment */
+	free_environment();
 
 	catclose(cat);
 

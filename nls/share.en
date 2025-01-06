@@ -34,6 +34,7 @@
 1.18:%s: cannot remove, internal unhook error.\n
 1.19:%s: cannot remove, unknown error.\n
 1.20:%s: program is not resident!\n
+1.21:%s: failed to free environment block.\n
 
 2.0:Program is not resident!\n
 2.1:Patch status: not supported by TSR.\n
