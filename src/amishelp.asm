@@ -6,11 +6,20 @@ cpu 8086
 
 
 %ifdef __WATCOM__
- group DGROUP _TEXT _DATA _TEXT_STARTUP _BSS _bss_startup
- section _TEXT CLASS=CODE
- section _DATA class=DATA
- section _TEXT_STARTUP CLASS=CODE
- section _BSS class=BSS
+ group DGROUP _TEXT _DATA _BSS _TEXT_STARTUP _DATA_STARTUP _BSS_STARTUP
+; group DGROUP _TEXT_RESIDENT _DATA_RESIDENT _TEXT CONST STRINGS _DATA DATA XIB XI XIE YIB YI YIE _BSS _BSS_RESIDENT
+
+ section _TEXT CLASS=CODE          ; resident code
+ section _DATA class=DATA          ; resident initialized data
+; section _BSS nobits class=BSS     ; resident uninitialized data
+section _BSS class=BSS
+
+ section _TEXT_STARTUP class=TCODE ; transient segments
+; section CONST_STARTUP
+ section _DATA_STARTUP class=TDATA
+ section _BSS_STARTUP nobits class=TBSS
+
+ section _BSS
 %else
 section .bss
 %endif
@@ -49,6 +58,7 @@ old_sp:
 %else
 section .text
 %endif
+
 
 
 %if 0
@@ -206,7 +216,7 @@ ctrl1:
  %endif
 %else
  %ifdef __WATCOM__
-  section _DATA
+  section _DATA_STARTUP
  %else
   section .data.startup
  %endif
@@ -333,7 +343,7 @@ amisnum equ $-1				; AMIS multiplex number (data for cmp opcode)
 %ifdef __WATCOM__
  section _TEXT_STARTUP
 %else
-section .text.startup
+ section .text.startup
 %endif
 
 
@@ -1172,7 +1182,7 @@ SearchIISPChain:
 
 
 %ifdef __WATCOM__
- section _DATA
+ section _DATA_STARTUP
 %else
 section .data.startup
 %endif
@@ -1182,7 +1192,7 @@ debuggeramissig:
 .prod:	fill 8,32,db "lDebug"	; product
 
 %ifdef __WATCOM__
- section _bss_startup nobits class DATA
+ section _BSS_STARTUP
 %else
 section .bss.startup nobits
 %endif

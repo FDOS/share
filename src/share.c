@@ -167,8 +167,15 @@ typedef struct {
 
 
 		/* ------------- GLOBALS ------------- */
-static char progname[9] NON_RES_BSS;
+
 #if defined (__WATCOMC__)
+#pragma data_seg ( _DATA_STARTUP, TDATA )
+#endif
+
+static char progname[9] NON_RES_BSS;
+
+#if defined (__WATCOMC__)
+#pragma data_seg ( )  /* resident */
 #pragma aux file_table_size "*"
 #pragma aux file_table_size_bytes "*"
 #pragma aux file_table_free "*"
@@ -217,17 +224,26 @@ uint16_t lock_table_free;
 uint16_t lock_table_offset;
 
 #endif
+
 static file_t *file_table = NULL;
 static lock_t *lock_table = NULL;
 
+#if defined (__WATCOMC__)
+#pragma data_seg ( _DATA_STARTUP, TDATA )
+#endif
+
 static nl_catd cat;    /* handle for localized messages (catalog) */
 
+#if defined(__WATCOMC__)
+#pragma data_seg ( )
+#endif
 
 		/* ------------- PROTOTYPES ------------- */
 static void usage(void) NON_RES_TEXT;
 static void bad_params(void) NON_RES_TEXT;
 unsigned short init_tables(void) NON_RES_TEXT;
 int main(int argc, char **argv) NON_RES_TEXT;
+
 
 
 	/* DOS calls this to see if it's okay to open the file.
@@ -739,6 +755,10 @@ static int is_file_open(char far *filename)
 }
 
 		/* ------------- INIT ------------- */
+#if defined (__WATCOMC__)
+#pragma code_seg ( _TEXT_STARTUP, TCODE )
+#endif
+
 	/* Allocate tables.
 	 * If we run out of memory return zero, otherwise return size
 	 * in paragraphs from PSP to end of last table */
@@ -753,9 +773,15 @@ unsigned short init_tables(void) {
 	file_table_free = file_table_size;
 	lock_table_free = lock_table_size;
 
+#if defined(__GNUC__)
+	/* sbrk() in newlib for DOS already does the memset, no need to duplicate it */
+	if ((p = sbrk(file_table_size_bytes + lock_table_size_bytes)) == (void *)-1)
+		return 0;
+#else
 	if ((p = malloc(file_table_size_bytes + lock_table_size_bytes)) == NULL)
 		return 0;
 	memset(p, 0, file_table_size_bytes + lock_table_size_bytes);
+#endif
 
 	file_table = (void *)p;
 	lock_table = (void *)(p + file_table_size_bytes);
@@ -776,17 +802,26 @@ unsigned short init_tables(void) {
 	fptr = (char far *)onebyte;
 	free(onebyte);
 	}
-#else /* GNUC */
+#else /* GNUC || WATCOM */
 	file_table_offset = (uint16_t)file_table;
 	lock_table_offset = (uint16_t)lock_table;
 
 	fptr = (char far *)sbrk(0);
 #endif
 
+	/* resident paras, counting from PSP:0 */
+#if defined(__WATCOMC__)
+	paras = ((FP_OFF(init_tables) + 15) >> 4) + ((file_table_size_bytes + lock_table_size_bytes + 15) >> 4);
+#else
 	paras = (FP_SEG(fptr)+((FP_OFF(fptr)+15) >> 4)) - _psp;
-				/* resident paras, counting from PSP:0 */
+#endif
 	return paras;
 }
+
+
+#if defined (__WATCOMC__)
+#pragma data_seg ( _DATA_STARTUP, TDATA )
+#endif
 
 #if defined(__TURBOC__)
 static const char msg_usage_3[] NON_RES_RODATA = "%s [/F:space] [/L:locks]\n";
@@ -932,6 +967,7 @@ int displaystatus(uint16_t mpx) {
 #endif
 
 /* using pointer in psp, free environment block to avoid leaking DOS memory */
+static void free_environment(void) NON_RES_TEXT;
 static void free_environment(void)
 {
 	unsigned short far *p_env_seg;
@@ -1188,6 +1224,7 @@ int main(int argc, char **argv) {
 		PRINTF(catgets(cat, 1, 2, msg_outofmemory), progname);
 		return 2;
 	}
+	printf("Keeping %u paragraphs (%u bytes)\n", top_of_tsr, top_of_tsr*16);
 
 	if (FP_SEG(getvect(MUX_INT_NO)) == 0
 		|| FP_OFF(getvect(MUX_INT_NO)) == 0xFFFF) {
@@ -1285,3 +1322,9 @@ int main(int argc, char **argv) {
 	keep(0,top_of_tsr);	/* size is set to top_of_tsr paragraphs */
 	return 0;
 }
+
+
+#if defined (__WATCOMC__)
+#pragma code_seg ( )
+#pragma data_seg ( )
+#endif

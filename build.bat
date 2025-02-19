@@ -52,9 +52,8 @@ goto doit
 IF [%BASEPATH%]==[] set BASEPATH=D:\ow19
 set CC=wcc
 set LD=wlink
-::set LDFLAGS=@share.lnk
-set LDFLAGS=system com name share.com file share,kitten,tnyprntf,amishelp option quiet,map,statics,verbose,artificial,symfile
-::set LDFLAGS=system dos name share.com file share,kitten,tnyprntf,amishelp option quiet,map,statics,verbose,artificial,symfile
+set LDFLAGS=@share.lnk
+::set LDFLAGS=system com name share.com file share,kitten,tnyprntf,amishelp option quiet,map,statics,verbose,artificial,symfile
 set CFLAGS=-I..\kitten -I..\tnyprntf -q -0 -ms -btdos -s -os -d3 -fo=
 set ASMFLAGS=-D__WATCOM__
 set EXTRA_OBJS=amishelp.obj

@@ -1,0 +1,13 @@
+debug WATCOM ALL 
+system com 
+name share.com 
+file share,kitten,tnyprntf,amishelp 
+option quiet,map,statics,verbose,artificial,symfile
+order 
+  clname CODE segment _TEXT
+  clname DATA
+  clname BSS
+  clname TCODE
+  clname TDATA
+  clname TBSS
+  
