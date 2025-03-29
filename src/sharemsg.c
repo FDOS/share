@@ -6,12 +6,7 @@
 
 #include "share.h"
 
-#if defined(__WATCOMC__)
-//#pragma data_seg ( _DATA_startup, TDATA )
-//#pragma code_seg ( _TEXT_startup, TCODE )
-#endif
 
-#include <stdarg.h>
 #include "tnyprntf.h"
 //extern int PRINTF(char *s, ...);
 
@@ -44,7 +39,7 @@ static nl_catd cat NON_RES_BSS;    /* handle for localized messages (catalog) */
 
 /* help, status, and error messages, see cats for translations */
 /* NOTE: order here matters, update defines in share.h if changes!!! */
-#if 1 //defined(__WATCOMC__)
+#if 0 //defined(__WATCOMC__)
 #pragma aux messages "*"
 extern const char *messages[] NON_RES_RODATA;
 #else
@@ -151,6 +146,11 @@ void print_status_message(unsigned msgno, ...) {
 	va_list arg;
 
 	va_start(arg, msgno);
-	PRINTF(catgets(cat, 2, msgno, messages[MSG_STATUS_START+msgno]), arg);
+	VPRINTF(catgets(cat, 2, msgno, messages[MSG_STATUS_START+msgno]), arg);
+	va_end(arg);
+}
+
+void print_fatal(void) {
+	PRINTF("Fatal error!\n");
 }
 

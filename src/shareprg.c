@@ -6,40 +6,25 @@
 
 #include "share.h"
 
-#if (__WATCOMC__)
-//#pragma data_seg ( _DATA_startup, TDATA )
-//#pragma code_seg ( _TEXT_startup, TCODE )
-#endif
 
-#if defined(__TURBOC__) || (__WATCOMC__)
 void far * getvect(unsigned char intno);
 void setvect(unsigned char intno, void far * vector);
 unsigned freemem(unsigned seg);
 void close(unsigned fileno);
 void keep(unsigned retcode, unsigned paras);
-//#define getvect(x) _dos_getvect(x)
-//#define setvect(x, y) _dos_setvect(x, y)
-//#define freemem(x) _dos_freemem(x)
-//#define keep(x, y) _dos_keep(x, y)
 
 extern  unsigned      _Cdecl _psp;
 
+#if defined(__GNUC__)
+#define setvect(x, y) setvect(x, (__libi86_isr_t)y)
+#endif
 
-#elif defined(__GNUC__)
-#include <libi86/stdlib.h>
-#include <unistd.h>
-
-#define getvect(x) _dos_getvect(x)
-#define setvect(x, y) _dos_setvect(x, (__libi86_isr_t)y)
-#define freemem(x) _dos_freemem(x)
-#define keep(x, y) _dos_keep(x, y)
-
-#else
-#error "This software must be compiled with TurboC, TurboC++ or Gcc-ia16"
+#if !(defined(__TURBOC__) || defined(__WATCOMC__) || defined(__GNUC__))
+#error "This software must be compiled with Open Watcom, Borland/Turbo C/C++ or Gcc-ia16"
 #endif
 
 /* <stdlib.h> _psp, NULL, malloc, sbrk, free, atol, MK_FP, FP_SEG, FP_OFF */
-#define atol(s) minimal_atol(s)
+long atol(const char *s) NON_RES_TEXT;
 void *malloc(size_t size);
 #define sbrk malloc
 #define free(p)
@@ -47,6 +32,7 @@ void *malloc(size_t size);
 /* string.h */
 char * strchr(const char *str, int c);
 void * memset(void *p, int val, size_t size);
+//void * memclr(void *p, size_t size);  /* #define memclr(p, size) memset(p, 0, size) */
 
 
 		/* ------------- PROTOTYPES ------------- */
@@ -81,8 +67,7 @@ int main(int argc, char **argv) NON_RES_TEXT;
 
 #pragma aux (__gcc16) asm_get_status
 
-#pragma aux (__gcc16) mpx_install_check
-#pragma aux (__gcc16) amis_install_check
+#pragma aux (__gcc16) impx_install_check
 
 #pragma aux top_of_stack "*"
 #endif
@@ -104,8 +89,8 @@ extern uint16_t asm_enable(uint16_t mpx) NON_RES_TEXT;
 extern uint16_t asm_disable(uint16_t mpx) NON_RES_TEXT;
 extern uint16_t asm_init(void) NON_RES_TEXT;
 
-extern uint16_t mpx_install_check(uint16_t multiplex_id) NON_RES_TEXT;
-extern uint16_t amis_install_check(uint16_t multiplex_id) NON_RES_TEXT;
+/* int 2F and 2D multiplex and AMIS install check, sets AH=id and AL=0 */
+extern uint16_t impx_install_check(uint16_t int_no, uint16_t multiplex_id) NON_RES_TEXT;
 
 
 		/* ------------- INIT ------------- */
@@ -116,7 +101,6 @@ extern uint16_t amis_install_check(uint16_t multiplex_id) NON_RES_TEXT;
 
 static unsigned short init_tables(void) {
 	unsigned short paras;
-	char far *fptr;
 	char *p;
 
 	file_table_size = file_table_size_bytes / sizeof(file_t);
@@ -124,66 +108,29 @@ static unsigned short init_tables(void) {
 	file_table_free = file_table_size;
 	lock_table_free = lock_table_size;
 
-#if defined(__GNUC__)
-	/* sbrk() in newlib for DOS already does the memset, no need to duplicate it */
-	if ((p = sbrk(file_table_size_bytes + lock_table_size_bytes)) == (void *)-1)
-		return 0;
-#else
+	/* file_table is initialized to end of resident code, no need to allocate memory for it.
+	   WARNING: the memory is cleared just before exiting resident as it will clear any
+	   non-resident code as well, crashing share if done too early!!!
+	*/
+#if 0
 	if ((p = malloc(file_table_size_bytes + lock_table_size_bytes)) == NULL)
 		return 0;
 	memset(p, 0, file_table_size_bytes + lock_table_size_bytes);
-#endif
 
 	file_table = (void *)p;
+#else
+	p = (char *)file_table;
+#endif
 	lock_table = (void *)(p + file_table_size_bytes);
 
-#if defined(__TURBOC__)
-	{
-	char *onebyte;
+	p += file_table_size_bytes + lock_table_size_bytes;
 
-	/* Allocate a single byte.  This tells us the size of the TSR.
-	   Free the byte when we know the address. */
-	onebyte = malloc(1);
-	if (onebyte == NULL) {
-		free(p);
-		file_table = NULL;
-		lock_table = NULL;
-		return 0;
-	}
-	fptr = (char far *)onebyte;
-	free(onebyte);
-	}
-#else /* GNUC || WATCOM */
-	file_table_offset = (uint16_t)file_table;
-	lock_table_offset = (uint16_t)lock_table;
-
-	fptr = (char far *)sbrk(0);
-#endif
-
-	/* resident paras, counting from PSP:0 */
-	paras = (FP_SEG(fptr)+((FP_OFF(fptr)+15) >> 4)) - _psp;
+	/* resident paras, counting from PSP:0, offset of end of our tables in paragraphs (rounded up) + sizeof(psp) */
+	paras = (unsigned short)p;
+	paras = (paras + 15)/16 + 0x10;
 	return paras;
 }
 
-
-
-/* Naive implementation of atol(), only decimal digits allowed, no signs */
-static long minimal_atol(const char *s) NON_RES_TEXT;
-static long minimal_atol(const char *s) {
-	long val;
-	const char *p;
-
-	for (val = 0, p = s; *p; p++) {
-		if (*p == ' ')
-			continue;
-		if (*p < '0' || *p > '9')
-			break;
-		val *= 10;
-		val += *p - '0';
-	}
-
-	return val;
-}
 
 
 
@@ -200,8 +147,8 @@ typedef struct __attribute__((packed, aligned(2))) {
 
 extern void asm_get_status(uint16_t mpx, status_struct * s) NON_RES_TEXT;
 
-int displaystatus(uint16_t mpx) NON_RES_TEXT;
-int displaystatus(uint16_t mpx) {
+static int displaystatus(uint16_t mpx) NON_RES_TEXT;
+static int displaystatus(uint16_t mpx) {
 	status_struct s;
 	if (mpx == 0xFFFF) {
 		mpx = asm_find_resident();
@@ -257,6 +204,8 @@ static void free_environment(void)
 	}
 }
 
+int Tprintf(const char * fmt, ...);
+
 
 		/* ------------- MAIN ------------- */
 int main(int argc, char **argv) {
@@ -274,11 +223,14 @@ int main(int argc, char **argv) {
 	file_table_size_bytes = 2048;
 
 	init_messages(argv[0]);
-
+	
 		/* See if the TSR is already installed. */
 	/* disable(); */	/* no multitasking, so don't worry */
+	Tprintf(" --- \n");
+	Tprintf("Int 0x2f at %p\n", getvect(MUX_INT_NO));
 	if ( (FP_SEG(getvect(MUX_INT_NO)) != 0) && (FP_OFF(getvect(MUX_INT_NO)) != 0xFFFF) ) {
-		installed = (mpx_install_check(MULTIPLEX_ID) & 0xff) == 0xff;
+		installed = (impx_install_check(MUX_INT_NO, MULTIPLEX_ID) & 0xff) == 0xff;
+		Tprintf("Share installed status = %i\n", installed);
 	} /* else { enable(); } */
 
 		/* Process command line arguments.  Bail if errors. */
@@ -456,8 +408,6 @@ int main(int argc, char **argv) {
 		print_program_message(MSG_outofmemory);
 		return 2;
 	}
-	/* debug message */
-//	PRINTF("Keeping %u paragraphs (%u bytes)\n", top_of_tsr, top_of_tsr*16);
 
 	if (FP_SEG(getvect(MUX_INT_NO)) == 0
 		|| FP_OFF(getvect(MUX_INT_NO)) == 0xFFFF) {
@@ -474,6 +424,10 @@ int main(int argc, char **argv) {
 		return 5;
 	}
 
+	/* debug message */
+	Tprintf("Keeping %u paragraphs (%u bytes) at %p\n", top_of_tsr, top_of_tsr*16, MK_FP(_psp, 0));
+	Tprintf("Int 0x2f at %p\n", MK_FP(_psp+0x10, FP_OFF((void near *)handler2f)));
+
 	/* following code adapted from Ralf Brown's FINDTSR.C
 	 * of 1992-09-12, Public Domain */
 	{
@@ -481,7 +435,7 @@ int main(int argc, char **argv) {
 	  /* loop through all 256 multiplex numbers */
 	  for (mpx = 0 ; mpx <= 255 ; mpx++)
 	  {
-	    if (amis_install_check(mpx) == 0) /* free ? */
+	    if (impx_install_check(AMIS_INT_NO, mpx) == 0) /* free ? */
 	    {
 	      amisnum = mpx;
 	      break;
@@ -523,6 +477,12 @@ int main(int argc, char **argv) {
 		(void)displaystatus(amisnum);
 	}
 
+	{ // debug
+		installed = (impx_install_check(MUX_INT_NO, MULTIPLEX_ID) & 0xff) == 0xff;
+		Tprintf("Share installed status = %i\n", installed);
+	}
+
+
 		/* Any access to environment variables must */
 		/* be done prior to this point.  Here we    */
 		/* free the environment table to prevent    */
@@ -542,8 +502,8 @@ int main(int argc, char **argv) {
 	for (i = 0; i < 20; ++i) {
 		close(i);	/* clean up file handles */
 	}
-
-		/* Terminate and stay resident. */
-	keep(0,top_of_tsr);	/* size is set to top_of_tsr paragraphs */
+	
+	/* clears file_table and lock_table, then exits leaving resident portion */
+	cleartable_stayresident(top_of_tsr); /* size is set to top_of_tsr paragraphs */
 	return 0;
 }

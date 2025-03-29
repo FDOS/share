@@ -1,11 +1,8 @@
 ; holds string constants used in messages
-bits 16
-cpu 8086
-
 
 %include "segs.inc"
 
-s.const.startup
+s.const
 
 
 global messages

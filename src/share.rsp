@@ -1,13 +1,10 @@
 system dos
 debug DWARF
 name share.com 
-file startup,amisstub,sharetsr,sharemsg,messages,shareprg,tnyprntf,kitten,clib
+file startup,amisstub,sharetsr,dossup,clib,amishelp,shareprg,tnyprntf,kitten,sharemsg
 option quiet,map,statics,verbose,artificial,symfile,NODEFAULTLIBS,start=entry
 order 
-  clname CODE segment _TEXT
+  clname CODE segment _RTEXT
   clname DATA
   clname BSS
-  clname TCODE
-  clname TDATA
-  clname TBSS
   

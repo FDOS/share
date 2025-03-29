@@ -8,6 +8,17 @@
 
 #include "share.h"
 
+typedef unsigned size_t;
+void * memclr(void *p, size_t size);  /* #define memclr(p, size) memset(p, 0, size) */
+void keep(unsigned retcode, unsigned paras);
+
+
+/*
+#if (__WATCOMC__)
+#pragma data_seg ( _TEXT, CODE )
+#endif
+*/
+
 
 		/* ------------- TYPEDEFS ------------- */
 	/* Register structure for an interrupt function. */
@@ -41,6 +52,9 @@ typedef struct  __attribute__((packed, aligned(2))) {
 	   Exceptions to the rules are handled in the table
 	   below, so this table only covers the general rules.
 	*/
+#if 1
+extern unsigned char open_actions[5][5];
+#else
 static unsigned char open_actions[5][5] = {
 	{ 0, 1, 1, 1, 1 },
 	{ 2, 1, 1, 1, 1 },
@@ -48,6 +62,7 @@ static unsigned char open_actions[5][5] = {
 	{ 2, 1, 1, 1, 1 },
 	{ 2, 1, 1, 1, 0 },
 };
+#endif
 
 typedef struct {
 	unsigned char first_sharemode;
@@ -57,6 +72,9 @@ typedef struct {
 	unsigned char action;
 } open_action_exception_t;
 
+#if 1
+extern open_action_exception_t open_exceptions[18];
+#else
 static open_action_exception_t open_exceptions[] = {
 	{ 0, 0, 2, 0, 3 },
 	{ 0, 0, 4, 0, 3 },	/* compatibility-read/deny none-read, MED 08/2004 */
@@ -77,9 +95,17 @@ static open_action_exception_t open_exceptions[] = {
 	{ 4, 1, 3, 1, 0 },
 	{ 4, 1, 3, 2, 0 },
 };
+#endif
 
-file_t *file_table = NULL;
-lock_t *lock_table = NULL;
+//file_t *file_table = NULL;
+//lock_t *lock_table = NULL;
+extern file_t *file_table;
+extern lock_t *lock_table;
+
+
+#if (__WATCOMC__)
+#pragma data_seg ( )
+#endif
 
 
 		/* ------------- PROTOTYPES ------------- */
@@ -152,7 +178,7 @@ extern intregs_t iregs;
 
 void inner_handler(void) {
 	need_to_chain = 0; /* by default assume we process request and no need to chain */
-
+	
 	if (((iregs.ax >> 8) & 0xff) == MULTIPLEX_ID) {
 		if ((iregs.ax & 0xff) == 0) {
 				/* Installation check.  Return 0xff in AL. */
@@ -225,8 +251,10 @@ static void remove_all_locks(int fileno) {
 }
 
 static void free_file_table_entry(int fileno) {
-	file_table[fileno].filename[0] = '\0';
-	++ file_table_free;
+	if ((fileno >= 0) && (fileno < file_table_size)) {
+		file_table[fileno].filename[0] = '\0';
+		++ file_table_free;
+	}
 }
 
 /* DOS 7 does not have read-only restrictions, MED 08/2004 */
@@ -257,9 +285,9 @@ static int do_open_check
 	(int fileno) {		/* file_table entry number */
 	file_t *p, *fptr = &file_table[fileno];
 	int i, j, action = 0, foundexc;
+	open_action_exception_t *excptr;
 	unsigned char current_sharemode = fptr->sharemode;
 	unsigned char current_openmode = fptr->openmode;
-	open_action_exception_t *excptr;
 
 	fptr->first_sharemode = fptr->sharemode;
 	fptr->first_openmode = fptr->openmode;
@@ -305,12 +333,16 @@ static int do_open_check
 /*		case 4:	*/		/* succeed if file read-only, else fail with int 24h */
 /*			if (file_is_read_only(fptr->filename)) break;	*/
 		case 2:		/* fail with int 24h */
-			free_file_table_entry(fileno);
-			critical_error(
-				0x0d,	/* sharing violation */
-				( (fptr->filename[0]!='\0') && (fptr->filename[1]==':') ) ? fptr->filename[0]-'A' : 0
-			);
-			return -0x20;			/* sharing violation */
+			{
+				/* fptr no longer valid after we free fileno entry, so get drive first */
+				uint16_t drive = ( (fptr->filename[0]!='\0') && (fptr->filename[1]==':') ) ? fptr->filename[0]-'A' : 0;
+				free_file_table_entry(fileno);
+				critical_error(
+					0x0d,	/* sharing violation */
+					drive
+				);
+				return -0x20;			/* sharing violation */
+			}
 		}
 		break;
 	}
@@ -404,13 +436,23 @@ static int access_check
 	lock_t *lptr;
 	unsigned long endofs = ofs + len;
 
+	/* check that fileno is within valid range */
+	if (fileno < 0) /* fileno == -1 */
+		return 0; /* assume no locks, so ok */
+	if (fileno > lock_table_size)
+		return -0x6; /* invalid handle */
+
+	/* check for overflow, if so validate only to max len possible */
 	if (endofs < ofs) {
 		endofs = 0xffffffffL;
 		len = endofs-ofs;
 	}
 
 	if (len < 1L) return 0;
-
+	
+	/* for each entry in lock table, see if matching entry in range
+	   requested and return lock violation if match found
+	 */
 	for (i = 0; i < lock_table_size; i++) {
 		lptr = &lock_table[i];
 		if (   (lptr->used)
@@ -503,3 +545,30 @@ static int is_file_open(char far *filename)
 	}
 	return 0;
 }
+
+/* the file and lock table overwrite the transient code, 
+   so the last thing we do when loading share is clear the table and
+   exit to DOS resident, this chunk of code is not used by 
+   resident portion, but placed below table to ensure not
+   overwritten by clearing code - other option is to ensure
+   placed high enough that max size table won't overwrite.
+
+   paras is # of paragraphs to leave resident
+*/
+void cleartable_stayresident(unsigned short paras)
+{
+	/* initial installation, clear memory, but done last so can overwrite all code up to this point */
+	memclr(file_table, file_table_size_bytes + lock_table_size_bytes);
+	
+	/* Terminate and stay resident. */
+	keep(0, paras);
+}
+/* sets memory to 0 */
+void * memclr(void *src, size_t size) {
+	char *p, *p_end;
+	p = src;
+	for (p_end=p+size; p < p_end; p++)
+		*p = 0;
+	return src;
+}
+

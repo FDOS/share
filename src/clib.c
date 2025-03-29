@@ -4,27 +4,26 @@ typedef unsigned size_t;
 int main(int argc, char **argv);
 int Tprintf(const char * fmt, ...);
 
-
-#if (__WATCOMC__)
-//#pragma data_seg ( _DATA_startup, TDATA )
-//#pragma code_seg ( _TEXT_startup, TCODE )
-#endif
-
+#define NON_RES_TEXT
 
 /*
-__I4M
-__U4D
-_cstart_
 intdos
 */
 
 int _argc = 0;
 extern char * _heap;
 extern char * _environ;
+extern char sstack;
+
 
 void *malloc(size_t size) 
 {
 	char *p = _heap;
+	if ( (_heap+size) >= (&sstack-0x800) ) 
+	{
+		/* memory exhausted, we are bumping into our stack! */
+		return NULL;
+	}
 	_heap += size;
 	return p;
 }
@@ -45,7 +44,6 @@ int iscntrl(int c)
 }
 
 #define isargdelim(c) (isspace(c) || iscntrl(c) || (c==',') || (c==';') || (c=='='))
-extern char sstack;
 
 /* returns DOS exit code if doesn't stay resident */
 int _cstart(void) 
@@ -54,8 +52,7 @@ int _cstart(void)
 	char *argv[9];
 	char *p;
 	int i;
-	void writechar(char c);
-	writechar('*');
+
 	for (p = cmdline, i = 1, argv[0]=cmdline; *p && (*p!='\r'); p++)
 	{
 		register char c = *p;
@@ -138,17 +135,33 @@ char * strchr(const char *str, int c) {
 void * memset(void *src, int val, size_t size) {
 	char *p;
 	size_t i;
-	for (p = src, i=0; i < size; i++)
+	for (p = src, i=0; i < size; i++, p++)
 		*p = (char)val;
 	return src;
 }
 
+/* Naive implementation of atol(), only decimal digits allowed, no signs */
+long atol(const char *s) NON_RES_TEXT;
+long atol(const char *s) {
+	long val;
+	const char *p;
+
+	for (val = 0, p = s; *p; p++) {
+		if (*p == ' ')
+			continue;
+		if (*p < '0' || *p > '9')
+			break;
+		val *= 10;
+		val += *p - '0';
+	}
+
+	return val;
+}
 
 
 // used by kitten
 
 char *getenv(char *s) {return NULL;}
 
-//int open(const char *filename, int mode, ... );
 int read(int fileno, int count, int block_size) { return 0; }
 int write() {return 0;}

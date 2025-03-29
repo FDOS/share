@@ -55,6 +55,7 @@ typedef unsigned size_t;
 
 
 		/* ------------- DEFINES ------------- */
+#define AMIS_INT_NO 0x2d
 #define MUX_INT_NO 0x2f
 #define MULTIPLEX_ID 0x10
 
@@ -106,11 +107,13 @@ typedef struct {
 #pragma aux file_table_size "*"
 #pragma aux file_table_size_bytes "*"
 #pragma aux file_table_free "*"
-#pragma aux file_table_offset "*"
+//#pragma aux file_table_offset "*"
+#pragma aux file_table "*"
 #pragma aux lock_table_size "*"
 #pragma aux lock_table_size_bytes "*"
 #pragma aux lock_table_free "*"
-#pragma aux lock_table_offset "*"
+//#pragma aux lock_table_offset "*"
+#pragma aux lock_table "*"
 
 
 /* gcc-ia16 version of __cdecl, similar to OW except don't preceed with _ underscore & doesn't modify __es 
@@ -136,6 +139,8 @@ extern uint16_t lock_table_offset;
 
 extern file_t *file_table;
 extern lock_t *lock_table;
+
+void cleartable_stayresident(unsigned short paras);
 
 
 #define MSG_USAGE_START 0  /* set 0 */
