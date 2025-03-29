@@ -82,6 +82,7 @@ typedef unsigned size_t;
 
 	/* One of these exists for each instance of an open file. */
 typedef struct {
+	/* filename size should match kernel size for PriPathName */
 	char filename[128];		/* fully-qualified filename; "\0" if unused */
 	unsigned short psp;		/* PSP of process which opened this file */
 	unsigned char openmode;	/* 0=read-only, 1=write-only, 2=read-write */
