@@ -5,7 +5,7 @@
 
 %if 0  ; based on:
 
-Resident code of TSR example
+Transient code of TSR example
  2020 by C. Masloch
 
 Usage of the works is permitted provided that this
@@ -62,8 +62,8 @@ s.text
 
 ; uint16_t impx_install_check(uint16_t multiplex_no, uint16_t multiplex_id) NON_RES_TEXT;
 ; for int 0x2f and 0x2d install check, al=0, ah=id
-global impx_install_check
-impx_install_check:
+global _impx_install_check
+_impx_install_check:
 
 	lframe near
 	lpar word, mpx_id
@@ -98,8 +98,8 @@ cleanup:
 	retn
 
 
-global asm_find_resident
-asm_find_resident:
+global _asm_find_resident
+_asm_find_resident:
 	push ds
 	push es
 	push si
@@ -176,8 +176,8 @@ ssReserved: resb 4
 	endstruc
 
 
-global asm_get_status
-asm_get_status:
+global _asm_get_status
+_asm_get_status:
 	lframe near
 	lpar word, struct
 	lpar word, mpx
@@ -257,8 +257,8 @@ asm_get_status:
 	lret
 
 
-global asm_enable
-asm_enable:
+global _asm_enable
+_asm_enable:
 
 	lframe near
 	lpar word, mpx
@@ -314,8 +314,8 @@ asm_enable:
 	retn
 
 
-global asm_disable
-asm_disable:
+global _asm_disable
+_asm_disable:
 
 	lframe near
 	lpar word, mpx
@@ -416,8 +416,8 @@ zero_out_data:
 	retn
 
 
-global asm_uninstall
-asm_uninstall:
+global _asm_uninstall
+_asm_uninstall:
 
 uninstall:
 	push ds
@@ -594,8 +594,8 @@ unhookerrorcritical:
 	lleave ctx
 
 
-global asm_init
-asm_init:
+global _asm_init
+_asm_init:
 	push ds
 	push es
 	push si

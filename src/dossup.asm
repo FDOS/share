@@ -6,10 +6,17 @@
 s.text.resident
 
 ; not used by resident code, but should not be overwritten by resident data which overwrites .text segment
-global keep_
-keep_:
+global _(keep)
+_(keep):
 ;void keep(unsigned retcode, unsigned paras);
-	; on entry al=retcode, dx=paras
+	; WATCALL on entry al=retcode, dx=paras
+%ifdef STACKCALL
+	push bp
+	mov bp, sp
+	mov ax, bp[4]
+	mov dx, bp[6]
+	pop bp
+%endif
 	mov ah, 0x31
 	int 0x21
 	; if returns then error
@@ -41,8 +48,7 @@ __heap: resw HEAPSIZE
 
 s.text
 
-extern main_
-extern _cstart_
+extern _(_cstart)
 extern amissig.prod
 
 ; offsets in PSP
@@ -51,11 +57,10 @@ ENVIRON equ 0x2C
 CMDLEN  equ 0x80 ; 0x80 is length (byte count) of CMDLINE
 CMDLINE equ 0x81 ; up to 126 characters, usually terminated with \r
 
-
 global startup
 startup:
 	; setup stack
-	; although we may compile in small model, we assume CS=DS=SS
+	; compiled in small/tiny model where we assume CS=DS=SS, so setup segment registers to match
 	mov ax, cs
 	mov ds, ax
 	mov es, ax
@@ -167,25 +172,40 @@ startup:
 	mov ds, ax
 	
 	; setup argc and argv
-	call _cstart_
+	call _(_cstart)
 	; exit normally (not resident), assume AL has return from _cstart_
 	mov ah, 0x4C
 	int 0x21
 
 	
-global writechar_
-writechar_:
+global _(writechar)
+_(writechar):
 ;void writechar(char c);
+	push dx
+%ifdef STACKCALL
+	push bp
+	mov bp, sp
+	mov dx, bp[6]
+	pop bp
+%else
 	mov dl, al
+%endif
 	mov ah, 0x02  ; direct character output
 	int 0x21
+	pop dx
 	retn
 
-global getvect_
-getvect_:
+global _(getvect)
+_(getvect):
 ;void far * getvect(unsigned char intno);
 	push es
 	push bx
+%ifdef STACKCALL
+	push bp
+	mov bp, sp
+	mov ax, bp[8]
+	pop bp
+%endif
 	mov ah, 0x35 
 	int 0x21
 	mov ax, bx
@@ -194,24 +214,41 @@ getvect_:
 	pop es
 	retn
 
-global setvect_
-setvect_:
+global _(setvect)
+_(setvect):
 ;void setvect(unsigned char intno, void far * vector);
-	; on entry al=intno, mov cx:bx=vector to ds:dx
+	; WATCOM on entry al=intno, mov cx:bx=vector to ds:dx
+	; Borland/GCC use stack arguments
 	push ds
 	push dx
+%ifdef WATCALL
 	mov ds, cx
 	mov dx, bx
+%else ; STACKCALL
+	push bp
+	mov bp, sp
+	mov dx, bp[12]
+	mov ds, dx
+	mov dx, bp[10]
+	mov ax, bp[8]
+	pop bp
+%endif
 	mov ah, 0x25
 	int 0x21
 	pop dx
 	pop ds
 	retn
 	
-global freemem_
-freemem_:
+global _(freemem)
+_(freemem):
 ;unsigned freemem(unsigned seg);
 	push es
+%ifdef STACKCALL
+	push bp
+	mov bp, sp
+	mov ax, bp[6]
+	pop bp
+%endif
 	mov es, ax
 	mov ah, 0x49
 	stc
@@ -223,11 +260,18 @@ freemem_:
 .error:	
 	retn
 
-global close_
-close_:
+global _(close)
+_(close):
 ;void close(unsigned fileno);
 	push bx
+%ifdef STACKCALL
+	push bp
+	mov bp, sp
+	mov bx, bp[6]
+	pop bp
+%else ; WATCALL
 	mov bx, ax
+%endif
 	mov ah, 0x3e
 	stc
 	int 0x21
@@ -237,12 +281,20 @@ close_:
 .error:
 	retn
 	
-global open_
-open_:
+global _(open)
+_(open):
 ;int open(const char *filename, int mode, ... );
-	; on entry al=access & sharing modes, move bx=filename to ds:dx
+	; for WATCALL on entry al=access & sharing modes, move bx=filename to ds:dx
 	push dx
+%ifdef STACKCALL
+	push bp
+	mov bp, sp
+	mov ax, bp[6]
+	mov dx, bp[8]
+	pop bp
+%else ; WATCALL
 	mov dx, bx
+%endif
 	mov ah, 0x3d
 	int 0x21
 	; ax = file handle if carry clear, else error code
@@ -262,67 +314,92 @@ _small_code_: ; only here to tell OW linker that yes we expect to be built in sm
 
 global __I4M, __U4D ; 32 bit signed multiplication and unsigned division
 
-; multiply cx:bx * dx:ax, result in dx:ax (warning upper 32 bits thrown away including sign -- lower 32bits of __I4M == __U4M)
-; AB * CD = (A*C << 32) + ((B*C + A*D) << 16) + B*D where AB, CD are 32 bit unsigned numbers and A,B,C,D are 16 bit unsigned numbers
-; cx:bx * dx:ax = (cx*dx << 32) + ((bx*dx + cx*ax) << 16) + bx*ax
-; for signed, if negative value, negate value & multiply result by -1
-; i.e. sign=0; if cx:bx < 0 then sign=!sign && cx:bx=~(cx:bx)+1; if dx:ax < 0 then sign=!sign && dx:ax=~(cx:bx)+1; if sign then result=~result+1 [times -1]
-; LSW = bx * ax (lower 16, save upper 16 in XX)
-; MSW = bx * dx + cx * ax + XX (from lsw)
-; upper 32 bits is ignored ==> (cx*dx) + upper 16 from MSW calculation
-; for OW CX,BX considered destroyed, so we could return full 64bit value in cx:bx:dx:ax
+%include "lmul.inc"
 __I4M:
 	; calculate sign bit and negate values if needed
 	; TODO
 __U4M: ; cx:bx * dx:ax, result in dx:ax with high 32bits truncated
-%if 0 ; calculate LSW first then MSW
-	push si ; temp registers
-	push di
-	
-	mov si, dx ; save dx
-	mov di, ax ; save ax
-	
-	mul bx  ; ax*bx results in dx:ax
-	xchg ax, bx ; save LSW in bx  (original bx is now in ax)
-	xchg dx, si ; restore dx value and save upper 16 bits XX into si
-	mul dx  ; original bx*dx results in dx:ax
-	add ax, si ; dx:ax = original (bx*dx) + XX
-	adc dx, 0
-	mov si, dx  ; save in progress results from dx:ax into si:di
-	xchg ax, di ; and restore original ax value
-	mul cx  ; original cx*ax results in dx:ax
-	add ax, di
-	adc dx, si ; dx:ax = original ((bx*dx)+XX) + (cx*ax)
-	
-	pop si
-	pop di
-
-%else ; calculate MSW first then LSW
-	push    si
-
-	mov si, bx   ; si = _bx
-	xchg bx, ax
-	mul dx       ; dx:ax = _dx*_bx , bx = _ax , cx = _cx , si = _bx , _dx lost
-	
-	xchg cx, ax  ; cx = low(_dx*_bx) , ax = _cx
-	mul bx       ; dx:ax = _cx*_ax
-	
-	add cx, ax   ; cx = low(_cx*ax) + low(_dx*bx) == MSW - XX
-
-	mov ax, si   ; ax=_bx, bx=_ax
-	mul bx       ; dx:ax = _bx*_ax , ax = low(_bx*_ax) == LSW , dx = high(_bx*_ax) == XX
-	add dx, cx   ; dx = low(_cx*ax) + low(_dx*bx) + high(_bx*_ax) == bx * dx + cx * ax + XX (from lsw)
-
-	pop     si
-%endif
-
-	retn
-
+	LMUL
 
 %include "ldivmodu.inc"
 __U4D:
-                LDIVMODU
+	LDIVMODU
 %endif
+
+
+%ifdef __TURBOC__
+global N_LXMUL@
+
+%include "lmul.inc"
+N_LXMUL@:
+	LMUL
+
+
+global N_LUMOD@, N_LUDIV@
+%include "ldivmodu.inc"
+	
+; N_* are near version, we adjust stack so can far return cs:xx
+; F_* are far version, leave asis
+N_LDIV@:
+	pop ax
+	push cs
+	push ax
+LDIV@:
+F_LDIV@:
+	xor ax,ax			; 00b for signed division
+	jmp short @common
+
+N_LUDIV@:
+	pop ax
+	push cs
+	push ax
+LUDIV@:
+F_LUDIV@:
+	mov ax, 1			; 01b for unsigned division
+	jmp short @common
+
+N_LMOD@:
+	pop ax
+	push cs
+	push ax
+LMOD@:
+F_LMOD@:
+	mov ax, 2			; 10b for signed remainder
+	jmp short @common
+
+N_LUMOD@:
+	pop ax
+	push cs
+	push ax
+LUMOD@:
+F_LUMOD@:
+	mov ax, 3			; 11b for unsigned remainder
+;	jmp short @common
+
+; ax determines operation to perform, moved to di below
+; bit 1 determines if signed or unsigned, 
+; bit 2 if returns quotient (div) or remainder (mod)
+@common:
+	push si
+	push di
+	mov di, ax		; save action to perform
+	
+	%define STDCALL ; arguments are passed on stack
+	%define SIGNEDDIV ; optionally do signed division if (di & 1)
+	LDIVMODU		; division with quotient in dx:ax, remainder in cx:bx
+
+	; return results in dx:ax
+	test di, 2
+	jz @done
+	mov dx, cx
+	mov ax, bx
+
+@done:
+	pop di
+	pop si
+	retf 8	; also pop our arguments off stack
+%endif
+
 
 %ifdef gcc
 %macro ULONG_HELPERS 1

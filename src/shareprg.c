@@ -6,6 +6,15 @@
 
 #include "share.h"
 
+#if defined (__WATCOMC__)
+#if 0
+#pragma aux getvect "_*"
+#pragma aux setvect "_*"
+#pragma aux freemem "_*"
+#pragma aux close "_*"
+#pragma aux keep "_*"
+#endif
+#endif
 
 void far * getvect(unsigned char intno);
 void setvect(unsigned char intno, void far * vector);
@@ -13,10 +22,10 @@ unsigned freemem(unsigned seg);
 void close(unsigned fileno);
 void keep(unsigned retcode, unsigned paras);
 
-extern  unsigned      _Cdecl _psp;
+extern unsigned _psp;
 
 #if defined(__GNUC__)
-#define setvect(x, y) setvect(x, (__libi86_isr_t)y)
+//#define setvect(x, y) setvect(x, (__libi86_isr_t)y)
 #endif
 
 #if !(defined(__TURBOC__) || defined(__WATCOMC__) || defined(__GNUC__))
@@ -25,12 +34,12 @@ extern  unsigned      _Cdecl _psp;
 
 /* <stdlib.h> _psp, NULL, malloc, sbrk, free, atol, MK_FP, FP_SEG, FP_OFF */
 long atol(const char *s) NON_RES_TEXT;
-void *malloc(size_t size);
+void *malloc(size_t size)NON_RES_TEXT;
 #define sbrk malloc
 #define free(p)
 
 /* string.h */
-char * strchr(const char *str, int c);
+char * strchr(const char *str, int c) NON_RES_TEXT;
 void * memset(void *p, int val, size_t size);
 //void * memclr(void *p, size_t size);  /* #define memclr(p, size) memset(p, 0, size) */
 
@@ -52,24 +61,24 @@ int main(int argc, char **argv) NON_RES_TEXT;
 	/* Multiplex interrupt handler */
 
 #if defined(__WATCOMC__)
-#pragma aux (__gcc16) i2D_next
-#pragma aux (__gcc16) i2D_handler
+#pragma aux (__cdecl) i2D_next
+#pragma aux (__cdecl) i2D_handler
 
-#pragma aux (__gcc16) old_handler2f
-#pragma aux (__gcc16) handler2f
+#pragma aux (__cdecl) old_handler2f
+#pragma aux (__cdecl) handler2f
 
-#pragma aux amisnum "*"
-#pragma aux (__gcc16) asm_find_resident
-#pragma aux (__gcc16) asm_uninstall
-#pragma aux (__gcc16) asm_enable
-#pragma aux (__gcc16) asm_disable
-#pragma aux (__gcc16) asm_init
+#pragma aux amisnum "_*"
+#pragma aux (__cdecl) asm_find_resident
+#pragma aux (__cdecl) asm_uninstall
+#pragma aux (__cdecl) asm_enable
+#pragma aux (__cdecl) asm_disable
+#pragma aux (__cdecl) asm_init
 
-#pragma aux (__gcc16) asm_get_status
+#pragma aux (__cdecl) asm_get_status
 
-#pragma aux (__gcc16) impx_install_check
+#pragma aux (__cdecl) impx_install_check
 
-#pragma aux top_of_stack "*"
+#pragma aux top_of_stack "_*"
 #endif
 
 /* Within IBM Interrupt Sharing Protocol header */
@@ -80,8 +89,8 @@ extern void __far __interrupt (*old_handler2f)(void);
 extern void __far __interrupt __attribute__((near_section)) i2D_handler(void);
 extern void __far __interrupt __attribute__((near_section)) handler2f(void);
 
-extern uint8_t amisnum;
-extern uint16_t top_of_stack;
+extern uint8_t amisnum RES_DATA;
+extern uint16_t top_of_stack RES_DATA;
 
 extern uint16_t asm_find_resident(void) NON_RES_TEXT;
 extern uint16_t asm_uninstall(uint16_t mpx) NON_RES_TEXT;
@@ -204,7 +213,7 @@ static void free_environment(void)
 	}
 }
 
-int Tprintf(const char * fmt, ...);
+int Tprintf(const char * fmt, ...) NON_RES_TEXT;
 
 
 		/* ------------- MAIN ------------- */
@@ -459,12 +468,12 @@ int main(int argc, char **argv) {
 	setvect(0x2D, i2D_handler);  /* this causes relocation on TC & OW */
 #endif
 	old_handler2f = getvect(MUX_INT_NO);
-#if (defined(__TURBOC__) && (__TURBOC__ >= 0x0300))
+#if 0 && (defined(__TURBOC__) && (__TURBOC__ >= 0x0300))
 	{
 		void (near *isr)() = FP_OFF(handler2f);
 		setvect(MUX_INT_NO,(void (interrupt far *)())MK_FP(_DS,isr));
 	}
-#elif defined(__WATCOMC__)
+#elif defined(__WATCOMC__) || defined(__TURBOC__)
 	setvect(MUX_INT_NO,MK_FP(_psp+0x10, FP_OFF((void near *)handler2f))); 
 #else /* causes relocations when built with Turbo C/C++ 3 and OW */
 	setvect(MUX_INT_NO,handler2f);

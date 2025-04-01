@@ -22,6 +22,9 @@
 ; input:
 ;   dx:ax = dividend
 ;   cx:bx = divisor
+;%ifdef SIGNEDDIV
+;   di = flags for operation requested, div/mod signed/unsigned 
+;%endif
 ;
 ; output:
 ;   dx:ax = quotient of division of dividend by divisor
@@ -33,11 +36,36 @@
 %ifdef STDCALL
 	push bp
 	mov bp, sp
-	mov ax, [bp+6]
-	mov dx, [bp+8]
-	mov bx, [bp+10]
-	mov cx, [bp+12]
+	mov ax, [bp+10]	; these offsets assume si & di saved on stack
+	mov dx, [bp+12]	; after dividend and divisor pushed on stack
+ 	mov bx, [bp+14]	; subtrack 4 from offsets if not true 
+	mov cx, [bp+16]
 	pop bp
+%endif
+
+%ifdef SIGNEDDIV
+	; di is a flag register, lower 2 bits determine if signed/unsigned and div/mod operation
+	; with 3rd bit sign of result
+
+	test di, 1
+	jnz .@unsigned
+	; if doing signed division, convert to unsigned and save resulting quotient sign
+	; i.e. -6/-3=2 -6/3=-2 6/-3=-2 -7/-3=2r1 -7/3=-2r1 7/-3=-2r1
+	and di, 3	; flag an even result 0xxb, keep lower 2 bits unchanged
+	or dx, dx
+	jns .@next		; positive, otherwise convert to positive value (~dx:ax - 1)
+	neg dx
+	neg ax
+	sbb dx, 0
+	or di, 4	; 1xxb flag an odd result
+.@next:
+	or cx, cx
+	jns .@unsigned
+	neg cx
+	neg bx
+	sbb cx, 0
+	xor di, 4	; ?xxb toggle flag, so 0 if both negative or 1 if only 1 is negative
+.@unsigned:
 %endif
 
 	test    cx, cx             ; divisor > 2^16-1 ?
@@ -56,7 +84,7 @@
 	mov     bx, dx             ; bx = remainder-lo
 	mov     dx, cx             ; dx = quotient-hi(quotient in dx:ax)
 	xor     cx, cx             ; cx = remainder-hi (rem. in cx:bx)
-	ret
+	jmp		%%check_neg
 
 %%big_divisor:
 	push    si                 ; save temp
@@ -70,15 +98,15 @@
 	rcr     ax, 1              ;  dividend
 	shr     cx, 1              ;   and divisor
 	rcr     bx, 1              ;    right by 1 bit
-        jnz     %%shift_loop       ;     loop if di non-zero (rcr does not touch ZF)
+	jnz     %%shift_loop       ;     loop if di non-zero (rcr does not touch ZF)
 	div     bx                 ; compute quotient dx:ax>>x / cx:bx>>x (stored in ax; remainder in dx not used)
 	pop     bx                 ; get dividend lo-word
 	mov     cx, ax             ; save quotient
-        mul     di                 ; quotient * divisor hi-word (low only)
+	mul     di                 ; quotient * divisor hi-word (low only)
 	pop     dx                 ; dividend high
 	sub     dx,ax              ; dividend high - divisor high * quotient, no overflow (carry/borrow) possible here
 	push    dx                 ; save dividend high
-        mov     ax, cx             ; ax=quotient
+	mov     ax, cx             ; ax=quotient
 	mul     si                 ; quotient * divisor lo-word
 	sub     bx, ax             ; dividend-lo - (quot.*divisor-lo)-lo
 	mov     ax, cx             ; get quotient
@@ -93,6 +121,20 @@
 	xor     dx, dx             ; clear hi-word of quot (ax<=FFFFh) dx := 0
 	pop     di                 ; restore temp  
 	pop     si                 ;  variables
+	
+%%check_neg:
+%ifdef SIGNEDDIV
+	test di, 1	; signed operation?
+	jnz .@done
+	test di, 4	; negative result?
+	jnz .@done
+	neg dx
+	neg ax
+	sbb dx, 0
+.@done:
+%endif
+%ifndef STDCALL
 	ret
+%endif
 
 %endmacro

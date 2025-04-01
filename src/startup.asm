@@ -1,5 +1,4 @@
-; this is the first object compiled/linked and provides
-; both layout for program and initializes any values for C code
+; this is the first object compiled/linked and provides layout for program
 
 
 ; layout during initialization / program run
@@ -22,8 +21,9 @@
 
 s.text.resident ; start of s.text
 extern startup
-global entry
+global entry	; entry point to pass to Watcom's WLINK
 entry:
+..start:		; entry in OBJ for implicit entry point for OptLink
 jmp startup
 db "FD SHARE", 26,0
 

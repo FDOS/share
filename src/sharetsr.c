@@ -53,7 +53,7 @@ typedef struct  __attribute__((packed, aligned(2))) {
 	   below, so this table only covers the general rules.
 	*/
 #if 1
-extern unsigned char open_actions[5][5];
+extern unsigned char open_actions[5][5] RES_DATA;
 #else
 static unsigned char open_actions[5][5] = {
 	{ 0, 1, 1, 1, 1 },
@@ -73,7 +73,7 @@ typedef struct {
 } open_action_exception_t;
 
 #if 1
-extern open_action_exception_t open_exceptions[18];
+extern open_action_exception_t open_exceptions[18] RES_DATA;
 #else
 static open_action_exception_t open_exceptions[] = {
 	{ 0, 0, 2, 0, 3 },
@@ -99,8 +99,8 @@ static open_action_exception_t open_exceptions[] = {
 
 //file_t *file_table = NULL;
 //lock_t *lock_table = NULL;
-extern file_t *file_table;
-extern lock_t *lock_table;
+extern file_t *file_table RES_DATA;
+extern lock_t *lock_table RES_DATA;
 
 
 #if (__WATCOMC__)
@@ -162,10 +162,10 @@ static int is_file_open(char far *filename);
 	/* Multiplex interrupt handler */
 
 #if defined(__WATCOMC__)
-#pragma aux iregs "*"
-#pragma aux (__gcc16) inner_handler
-#pragma aux (__gcc16) critical_error
-#pragma aux need_to_chain "*"
+//#pragma aux iregs "_*"
+//#pragma aux (__borland) inner_handler
+#pragma aux (__borland) critical_error
+//#pragma aux need_to_chain "_*"
 #endif
 
 

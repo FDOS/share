@@ -15,6 +15,11 @@ extern char * _heap;
 extern char * _environ;
 extern char sstack;
 
+#ifdef __TURBOC__
+/* external reference created by Borland compiler when using int main(int argc, char **argv){} */
+void _setargv__() { }
+#endif
+
 
 void *malloc(size_t size) 
 {

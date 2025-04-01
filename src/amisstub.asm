@@ -115,8 +115,8 @@ OUT:	al = 00h
 
 s.data.resident
 
-global iregs
-iregs:
+global _iregs
+_iregs:
 	.bp: resw 1
 	.di: resw 1
 	.si: resw 1
@@ -130,12 +130,12 @@ iregs:
 	.cs: resw 1
 	.flags: resw 1		; (not used by us)
 
-global need_to_chain
-need_to_chain:
+global _need_to_chain
+_need_to_chain:
 	resw 1
 
-global top_of_stack
-top_of_stack:
+global _top_of_stack
+_top_of_stack:
 	resw 1
 
 old_ss:
@@ -165,34 +165,34 @@ amisintr:	; AMIS list of hooked interrupts, 2Dh marks end of list
 
 	; These variables are used as globals
 	;  by the C code. Each is an uint16_t.
-global file_table_size
-global file_table_size_bytes
-global file_table_free
-global file_table ;_offset
-global lock_table_size
-global lock_table_size_bytes
-global lock_table_free
-global lock_table ;_offset
+global _file_table_size
+global _file_table_size_bytes
+global _file_table_free
+global _file_table ;_offset
+global _lock_table_size
+global _lock_table_size_bytes
+global _lock_table_free
+global _lock_table ;_offset
 
 extern _end_resident
 
 
 	align 2, db 0
 ctrl2:
-file_table_size:	dw 0
-file_table_free:	dw 0
-lock_table_size:	dw 20
-lock_table_free:	dw 20
+_file_table_size:	dw 0
+_file_table_free:	dw 0
+_lock_table_size:	dw 20
+_lock_table_free:	dw 20
 ctrl2.end:
 
 	align 2, db 0
 ctrl3:
-file_table:
-file_table_offset:	dw OFFSET _end_resident	; WARNING: this will overwrite startup/transient code
-file_table_size_bytes:	dw 0
-lock_table:
-lock_table_offset:	dw 0
-lock_table_size_bytes:	dw 0
+_file_table:
+_file_table_offset:	dw OFFSET _end_resident	; WARNING: this will overwrite startup/transient code
+_file_table_size_bytes:	dw 0
+_lock_table:
+_lock_table_offset:	dw 0
+_lock_table_size_bytes:	dw 0
 ctrl3.end:
 
 ctrl1:
@@ -246,8 +246,8 @@ s.text.resident
 
 ; invoke DOS critical error handler for given drive & error code
 ; void critical_error(uint16_t error_code, uint16_t drive) __gcc16;
-global critical_error
-critical_error:
+global _critical_error
+_critical_error:
 
 	lframe near
 	lpar word, error_code
@@ -265,7 +265,7 @@ critical_error:
 
 i2D.uninstall:
 %if _SUPPORTGENERALUNINSTALLER
-	mov al, 04h			; safe to remove, no resident uninstaller,
+	mov al, 04h		; safe to remove, no resident uninstaller,
 					;  TSR now disabled
 	push es
 	push ds
@@ -315,23 +315,23 @@ i2D.hwreset equ $-1		; (second byte of mov bx, cs is same as the retf opcode)
 	sub bx, 10h			; memory block to dealloc is PSP, so subtract sizeof(PSP) from CS
 	iret
 
-global i2D_handler
-global i2D_next
-i2D_handler equ i2D
-i2D_next equ i2D.next
+global _i2D_handler
+global _i2D_next
+_i2D_handler equ i2D
+_i2D_next equ i2D.next
 
 iispentry i2D, 0, i2D
 	cmp ah, 0
-global amisnum
-amisnum equ $-1				; AMIS multiplex number (data for cmp opcode)
-	je .handle			; our multiplex number -->
-	jmp far [cs:.next]		; else go to next handler -->
+global _amisnum
+_amisnum equ $-1				; AMIS multiplex number (data for cmp opcode)
+	je .handle					; our multiplex number -->
+	jmp far [cs:.next]			; else go to next handler -->
 
 .handle:
 	test al, al
 	jz .installationcheck		; installation check -->
 	cmp al, 02h
-	je .uninstall			; uninstallation -->
+	je .uninstall				; uninstallation -->
 	cmp al, 04h
 	je .determineinterrupts		; determine hooked interrupts -->
 	cmp al, 21h
@@ -342,20 +342,20 @@ amisnum equ $-1				; AMIS multiplex number (data for cmp opcode)
 	je .ctrl3
 				; all other functions are reserved or not supported by TSR
 .nop:
-	mov al, 0			; show not implemented
+	mov al, 0					; show not implemented
 	iret
 
 .installationcheck:
-	dec al				; (= FFh) show we're here
-	mov cx, 10Ah			; = version
-	mov di, amissig			; dx:di -> AMIS signature strings of this program
+	dec al						; (= FFh) show we're here
+	mov cx, 10Ah				; = version
+	mov di, amissig				; dx:di -> AMIS signature strings of this program
 .iret_dx_cs:
 	mov dx, cs
 .iret:
 	iret
 
 .determineinterrupts:			; al = 04h, always returns list
-	mov bx, amisintr		; dx:bx -> hooked interrupts list
+	mov bx, amisintr			; dx:bx -> hooked interrupts list
 	jmp short .iret_dx_cs
 
 .ctrl1:
@@ -385,12 +385,12 @@ End of C. Masloch TSR example code
 
 s.text.resident
 
-extern inner_handler
+extern _(inner_handler)
 
-global handler2f
-global old_handler2f
-handler2f equ i2F
-old_handler2f equ i2F.next
+global _handler2f
+global _old_handler2f
+_handler2f equ i2F
+_old_handler2f equ i2F.next
 
 	; IBM Interrupt Sharing Protocol header
 iispentry i2F, 0    ; *** can use i2D for 3rd argument but exceeds jmp short
@@ -422,17 +422,17 @@ iispentry i2F, 0    ; *** can use i2D for 3rd argument but exceeds jmp short
 .enter_c_handler:
 
 	; save the input DS
-	pop word [iregs.ds]
+	pop word [_iregs.ds]
 
 	; save regs
-	mov  [iregs.bp], BP
-	mov  [iregs.di], DI
-	mov  [iregs.si], SI
-	mov  [iregs.es], ES
-	mov  [iregs.dx], DX
-	mov  [iregs.cx], CX
-	mov  [iregs.bx], BX
-	mov  [iregs.ax], AX
+	mov  [_iregs.bp], BP
+	mov  [_iregs.di], DI
+	mov  [_iregs.si], SI
+	mov  [_iregs.es], ES
+	mov  [_iregs.dx], DX
+	mov  [_iregs.cx], CX
+	mov  [_iregs.bx], BX
+	mov  [_iregs.ax], AX
 	; don't need IP or CS or flags
 	; (flags weren't ever read or written,
 	;  and setting flags before iret is pointless.
@@ -444,27 +444,27 @@ iispentry i2F, 0    ; *** can use i2D for 3rd argument but exceeds jmp short
 	mov [old_sp], SP
 	push CS
 	pop SS
-	mov SP, [top_of_stack]
+	mov SP, [_top_of_stack]
 
 	; insure UP (Direction Flag = 0) for our C code
 	cld
 
 	; call our handler
-	call inner_handler
+	call _(inner_handler)
 
 	; restore stack
 	mov SS, [old_ss]
 	mov SP, [old_sp]
 
 	; restore register input values
-	mov  BP, [iregs.bp]
-	mov  DI, [iregs.di]
-	mov  SI, [iregs.si]
-	mov  ES, [iregs.es]
-	mov  DX, [iregs.dx]
-	mov  CX, [iregs.cx]
-	mov  BX, [iregs.bx]
-	mov  AX, [iregs.ax]
+	mov  BP, [_iregs.bp]
+	mov  DI, [_iregs.di]
+	mov  SI, [_iregs.si]
+	mov  ES, [_iregs.es]
+	mov  DX, [_iregs.dx]
+	mov  CX, [_iregs.cx]
+	mov  BX, [_iregs.bx]
+	mov  AX, [_iregs.ax]
 
 	; Although this is a 16-bit variable it is
 	;  valid to check only the low 8 bits as
@@ -473,10 +473,10 @@ iispentry i2F, 0    ; *** can use i2D for 3rd argument but exceeds jmp short
 	;  the jnz. This is a small optimisation to
 	;  avoid a cs override prefix. The Zero Flag
 	;  is unaffected by the mov.
-	cmp byte [need_to_chain], 0
+	cmp byte [_need_to_chain], 0
 
 	; restore caller's DS
-	mov  DS, [iregs.ds]
+	mov  DS, [_iregs.ds]
 
 	; return from interrupt if we handled it
 	jnz  .run_old
@@ -484,7 +484,7 @@ iispentry i2F, 0    ; *** can use i2D for 3rd argument but exceeds jmp short
 
 .run_old:
 	; jump to old handler that will iret
-	jmp far [CS:old_handler2f]
+	jmp far [CS:_old_handler2f]
 
 
 	numdef CMPSTR, 1

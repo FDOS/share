@@ -14,6 +14,7 @@ typedef unsigned char uint8_t;
 typedef unsigned short uint16_t;
 typedef unsigned size_t;
 
+#define RES_DATA
 #define NON_RES_TEXT
 #define NON_RES_DATA
 #define NON_RES_RODATA
@@ -22,6 +23,9 @@ typedef unsigned size_t;
 #define __attribute__(x)
 
 #elif defined(__GNUC__)
+/* all static resident data is placed in .text segment, with stack and allocated memory overlapping .text.startup */
+#define RES_DATA __attribute__((section(".text")))
+
 #define NON_RES_TEXT __attribute__((section(".text.startup")))
 #define NON_RES_DATA __attribute__((section(".data.startup")))
 #define NON_RES_RODATA __attribute__((section(".rodata.startup")))
@@ -104,20 +108,26 @@ typedef struct {
 		/* ------------- GLOBALS ------------- */
 
 #if defined (__WATCOMC__)
-/* specify calling convention and extern naming with no underscore */
-#pragma aux file_table_size "*"
-#pragma aux file_table_size_bytes "*"
-#pragma aux file_table_free "*"
-//#pragma aux file_table_offset "*"
-#pragma aux file_table "*"
-#pragma aux lock_table_size "*"
-#pragma aux lock_table_size_bytes "*"
-#pragma aux lock_table_free "*"
-//#pragma aux lock_table_offset "*"
-#pragma aux lock_table "*"
+/* specify calling convention and extern naming with preceeding underscore */
+#pragma aux file_table_size "_*"
+#pragma aux file_table_size_bytes "_*"
+#pragma aux file_table_free "_*"
+//#pragma aux file_table_offset "_*"
+#pragma aux file_table "_*"
+#pragma aux lock_table_size "_*"
+#pragma aux lock_table_size_bytes "_*"
+#pragma aux lock_table_free "_*"
+//#pragma aux lock_table_offset "_*"
+#pragma aux lock_table "_*"
 
 
-/* gcc-ia16 version of __cdecl, similar to OW except don't preceed with _ underscore & doesn't modify __es 
+/* watcom version of __cdecl, suffix with _ underscore
+   __caller [] -- all arguments are passed on the stack, caller pops off on return
+   __value ... -- return result in __ax, or __dx:ax
+   __modify [__ax __bx __cx __dx __es] -- may modify ES along with AX,BX,CX,DX, all others preserved
+*/
+
+/* gcc-ia16 version of __cdecl, similar to OW except don't preceed or suffix with _ underscore & doesn't modify __es 
    __caller [] -- all arguments are passed on the stack, caller pops off on return
    __value ... -- return result in __ax
    __modify [__ax __bx __cx __dx] -- may be modified, all other registers unchanged
@@ -127,19 +137,31 @@ __parm __caller [] \
 __value __struct __float __struct __routine [__ax] \
 __modify [__ax __bx __cx __dx]
 
+
+/* Borland/Turbo C/C++ version of __cdecl, similar to OW except preceeded with _ underscore & ??? 
+   __caller [] -- all arguments are passed on the stack, caller pops off on return
+   __value ... -- return result in __ax
+   __modify [__ax __bx __cx __dx] -- may be modified, all other registers unchanged
+*/
+#pragma aux __borland "_*" \
+__parm __caller [] \
+__value __struct __float __struct __routine [__ax] \
+__modify [__ax __bx __cx __dx]
+
+
 #endif
 
-extern uint16_t file_table_size;	/* # of file_t we can have */
-extern uint16_t file_table_size_bytes;	/* amount bytes */
-extern uint16_t file_table_free;
-extern uint16_t file_table_offset;
-extern uint16_t lock_table_size;	/* # of lock_t we can have */
-extern uint16_t lock_table_size_bytes;	/* amount bytes */
-extern uint16_t lock_table_free;
-extern uint16_t lock_table_offset;
+extern uint16_t file_table_size RES_DATA;	/* # of file_t we can have */
+extern uint16_t file_table_size_bytes RES_DATA;	/* amount bytes */
+extern uint16_t file_table_free RES_DATA;
+extern uint16_t file_table_offset RES_DATA;
+extern uint16_t lock_table_size RES_DATA;	/* # of lock_t we can have */
+extern uint16_t lock_table_size_bytes RES_DATA;	/* amount bytes */
+extern uint16_t lock_table_free RES_DATA;
+extern uint16_t lock_table_offset RES_DATA;
 
-extern file_t *file_table;
-extern lock_t *lock_table;
+extern file_t *file_table RES_DATA;
+extern lock_t *lock_table RES_DATA;
 
 void cleartable_stayresident(unsigned short paras);
 
@@ -183,4 +205,5 @@ void cleartable_stayresident(unsigned short paras);
 #define MSG_filetable_disabled 9
 
 
+#pragma pack()  /* restore to default packing to avoid warnings on Borland compilers */
 #endif /* __SHARE_H__ */

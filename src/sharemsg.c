@@ -6,7 +6,6 @@
 
 #include "share.h"
 
-
 #include "tnyprntf.h"
 //extern int PRINTF(char *s, ...);
 
@@ -19,7 +18,7 @@
 	#define catclose(cat)
 #endif
 
-char * strchr(const char *str, int c);
+char * strchr(const char *str, int c) NON_RES_TEXT;
 
 
 		/* ------------- PROTOTYPES ------------- */
@@ -39,10 +38,6 @@ static nl_catd cat NON_RES_BSS;    /* handle for localized messages (catalog) */
 
 /* help, status, and error messages, see cats for translations */
 /* NOTE: order here matters, update defines in share.h if changes!!! */
-#if 0 //defined(__WATCOMC__)
-#pragma aux messages "*"
-extern const char *messages[] NON_RES_RODATA;
-#else
 static const char *messages[] NON_RES_RODATA = {
 /* usage messages, set 0 */
 	"%s [/F:space] [/L:locks]\n",
@@ -92,7 +87,6 @@ static const char *messages[] NON_RES_RODATA = {
 	/* MSG_filetable */ "File table: %u free / %u total, lock table: %u free / %u total\n",
 	/* MSG_filetable_disabled */ "File table: %u total, lock table: %u total\n",
 };
-#endif
 
 
 void init_messages(char *argv0) {
