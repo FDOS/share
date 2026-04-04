@@ -3,7 +3,6 @@ on:
   pull_request:
     types:
       - opened
-      - edited
       - ready_for_review
       - reopened
       - synchronize
@@ -13,11 +12,11 @@ jobs:
   build:
     if: contains(github.event.head_commit.message, '[skip ci]') == false
 
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
 
     steps:
     - name: Checkout repository and submodules
-      uses: actions/checkout@v3
+      uses: actions/checkout@v6
       with:
         submodules: recursive
 
