@@ -1099,10 +1099,10 @@ int main(int argc, char **argv) {
 		}
 		switch (rc) {
 		  case 1:
-			PRINTF(catgets(cat, 1, 14, msg_notinstalled), progname);
+			PRINTF(catgets(cat, 1, 15, msg_notinstalled), progname);
 			return 6;
 		  case 2:
-			PRINTF(catgets(cat, 1, 15, msg_somefailure), progname);
+			PRINTF(catgets(cat, 1, 16, msg_somefailure), progname);
 			return 7;
 		  case 3:
 			PRINTF(catgets(cat, 1, 17, msg_unhookerror), progname);
